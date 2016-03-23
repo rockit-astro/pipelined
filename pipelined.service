@@ -1,0 +1,15 @@
+[Unit]
+Description=Daemon for the data pipeline for the Warwick 1m telescope.
+After=syslog.target
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+Type=simple
+ExecStart=/usr/bin/env python3 -u /usr/bin/pipelined
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
