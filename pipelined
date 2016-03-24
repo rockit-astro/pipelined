@@ -23,9 +23,12 @@
 # pylint: disable=invalid-name
 # pylint: disable=too-many-instance-attributes
 
+import math
 import os
+import shutil
 import subprocess
 import threading
+from astropy.io import fits
 import Pyro4
 
 # Set automatically when generating RPM package
@@ -42,6 +45,21 @@ TELD_PORT = 9003
 TELD_NAME = 'telescope_daemon'
 
 TELD_URL = 'PYRO:' + TELD_NAME + '@' + TELD_HOST + ':' + str(TELD_PORT)
+
+PIXELSHIFT_PATH = '/home/saft/src/pixelshift/pixelshift'
+
+GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
+
+# Matrix coefficients transforming pixel offsets to sky offsets.
+# These are just the [CD1_1, CD1_2, CD2_1, CD2_2] wcs parameters
+GUIDE_TRANSFORM_MATRICES = {
+    'BLUE': [0.000108685545277, -3.58470982799E-07,
+             -2.98097156944E-07, -0.000108607868069],
+    'RED': [-0.00010858955941, 1.83797853216E-07,
+            -2.66674559873E-07, -0.000108601351771]
+}
+
+GUIDE_FUDGE_FACTOR = 0.5
 
 # This should be kept in sync with the dictionary in pipeline
 class CommandStatus:
@@ -73,6 +91,12 @@ class PipelineDaemon:
         self._guide_condition = threading.Condition()
         self._guide_camera_id = None
         self._guide_latest_frame = None
+        self._guide_x_binning = 1
+        self._guide_y_binning = 1
+        self._guide_background_tile_size = 0
+        self._guide_reference_frame = None
+        self._guide_last_guide_frame = None
+
         guide_thread = threading.Thread(target=self.__process_guide_frames)
         guide_thread.daemon = True
         guide_thread.start()
@@ -97,10 +121,51 @@ class PipelineDaemon:
                 frame = self._guide_latest_frame
                 self._guide_latest_frame = None
 
-            # TODO: Integrate guiding into the pipeline better
-            print('guiding on', frame)
+            # New guide session: take a copy of this frame to use as the reference
+            if self._guide_reference_frame is None:
+                print('taking', frame, 'as new guide reference')
+                try:
+                    self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
+                    shutil.copy(frame, GUIDE_REFERENCE_FRAME_PATH)
+                    reference = fits.open(GUIDE_REFERENCE_FRAME_PATH)
+                    self._guide_x_binning = reference[0].header['CCD-XBIN']
+                    self._guide_y_binning = reference[0].header['CCD-YBIN']
+                    reference.close()
+                except Exception as e:
+                    print('failed with error: ' + str(e))
+                continue
+
+            if self._guide_camera_id not in GUIDE_TRANSFORM_MATRICES:
+                print('no transform matrix for camera ' + self._guide_camera_id)
+                continue
+
             try:
-                subprocess.check_call(['/home/saft/src/teld/tel', 'guide', 'update', frame])
+                output = subprocess.check_output(
+                    [PIXELSHIFT_PATH, frame, self._guide_reference_frame,
+                     str(self._guide_background_tile_size)], universal_newlines=True, timeout=5)
+
+                t = GUIDE_TRANSFORM_MATRICES[self._guide_camera_id]
+                coords = output.split(' ')
+
+                # Measured offset in px
+                dx = float(coords[0])
+                dy = float(coords[1])
+
+                # First-order approximated offset in ra, dec (degrees)
+                dra = (t[0] * dx + t[1] * dy) * self._guide_x_binning
+                ddec = (t[2] * dx + t[3] * dy) * self._guide_y_binning
+
+                # Calculate actual telescope offset by running offsets through PID loop
+                # TODO: This currently only accounts for proportional offsets (no history)
+                guide_offset_ra = GUIDE_FUDGE_FACTOR * dra * math.pi / 180
+                guide_offset_dec = GUIDE_FUDGE_FACTOR * ddec * math.pi / 180
+
+                # TODO: Check for and drop anomalously large offsets
+
+                print('offset px: {} {}; arcsec: {} {}'.format(dx, dy, 3600 * dra, 3600 * ddec))
+
+                with Pyro4.Proxy(TELD_URL) as teld:
+                    teld.offset_radec_guiding(guide_offset_ra, guide_offset_dec)
             except Exception as e:
                 print('failed to update guiding with error: ' + str(e))
 
@@ -123,8 +188,8 @@ class PipelineDaemon:
 
                 # TODO: Integrate reduction into the pipeline better
                 try:
-                    subprocess.check_call(['/home/saft/src/tsreduce', 'update', f])
-                    subprocess.check_call(['/home/saft/src/tsreduce', 'plot', f])
+                    subprocess.check_call(['/home/saft/src/tsreduce/tsreduce', 'update', f])
+                    subprocess.check_call(['/home/saft/src/tsreduce/tsreduce', 'plot', f])
                 except Exception as e:
                     print('failed to update reduction with error: ' + str(e))
 
@@ -155,13 +220,16 @@ class PipelineDaemon:
             self._reduction_condition.notify()
 
     @Pyro4.expose
-    def set_guide_camera(self, camera_id):
+    def set_guide_camera(self, camera_id, background_tile_size=0):
         """Sets the camera ID to use for guiding"""
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._guide_camera_id = camera_id
+            self._guide_background_tile_size = background_tile_size
+            self._guide_reference_frame = None
+            self._guide_last_guide_frame = None
 
             return CommandStatus.Succeeded
 
@@ -181,7 +249,10 @@ class PipelineDaemon:
         """Returns a dictionary containing the current pipeline state"""
         return {
             'reduction_enabled': self._reduction_enabled,
-            'guide_camera_id': self._guide_camera_id
+            'guide_camera_id': self._guide_camera_id,
+            'guide_background_tile_size': self._guide_background_tile_size,
+            'guide_reference_frame': self._guide_reference_frame,
+            'guide_last_guide_frame': self._guide_last_guide_frame
         }
 
 def spawn_daemon():

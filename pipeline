@@ -46,12 +46,6 @@ STATUS_CODES = {
     2: 'error: another command is already running',
 }
 
-GUIDE_CAMERA_NAMES = {
-    'blue': 'BLUE',
-    'red': 'RED',
-    'disable': None
-}
-
 def run_command(command):
     """Prints the message associated with a status code and returns the code"""
     try:
@@ -80,15 +74,6 @@ def status():
     print('   Reduction ' + FMT_BOLD + reduction_state + FMT_CLEAR)
     return 0
 
-# TODO: Remove this after the telescope code is updated to work as the guide frontend
-def guide(args):
-    """Configure autoguider"""
-    if len(args) == 1 and args[0] in GUIDE_CAMERA_NAMES:
-        with Pyro4.Proxy(PIPELINE_URI) as pipeline:
-            return pipeline.set_guide_camera(GUIDE_CAMERA_NAMES[args[0]])
-    print('usage: {} guide (blue|red|disable)'.format(SCRIPT_NAME))
-    return -1
-
 def reduction(args):
     """Configure reduction"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
@@ -103,7 +88,6 @@ def print_usage():
     print()
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
-    print('   guide        configure that camera that is used for autoguiding')
     print('   reduction    configure online reduction')
     print()
 
@@ -114,8 +98,6 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         sys.exit(print_usage())
 
-    if sys.argv[1] == 'guide':
-        run_command(lambda: guide(sys.argv[2:]))
     if sys.argv[1] == 'reduction':
         run_command(lambda: reduction(sys.argv[2:]))
     if sys.argv[1] == 'status':

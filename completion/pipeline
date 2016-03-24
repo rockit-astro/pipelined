@@ -3,7 +3,7 @@ _pipeline()
     local cur opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    opts="status guide reduction"
+    opts="status reduction"
 
     COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
     return 0
