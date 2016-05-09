@@ -28,6 +28,7 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from astropy.io import fits
 import Pyro4
 
@@ -57,6 +58,11 @@ GUIDE_TRANSFORM_MATRICES = {
              -2.98097156944E-07, -0.000108607868069],
     'RED': [-0.00010858955941, 1.83797853216E-07,
             -2.66674559873E-07, -0.000108601351771]
+}
+
+CAMERA_URLS = {
+    'BLUE': 'PYRO:blue_camera_daemon@192.168.0.101:9011',
+    'RED': 'PYRO:red_camera_daemon@192.168.0.101:9012'
 }
 
 GUIDE_FUDGE_FACTOR = 0.5
@@ -108,6 +114,14 @@ class PipelineDaemon:
         reduction_thread = threading.Thread(target=self.__update_reduction)
         reduction_thread.daemon = True
         reduction_thread.start()
+
+        self._wcs_condition = threading.Condition()
+        self._wcs_enabled = False
+        self._wcs_files = set()
+
+        wcs_thread = threading.Thread(target=self.__update_wcs)
+        wcs_thread.daemon = True
+        wcs_thread.start()
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -193,17 +207,76 @@ class PipelineDaemon:
                 except Exception as e:
                     print('failed to update reduction with error: ' + str(e))
 
+    def __update_wcs(self):
+        """Calculates WCS solutions for the latest frame previews"""
+        while True:
+            # Block until a frame is available for processing
+            updated = None
+            with self._wcs_condition:
+                while len(self._wcs_files) == 0:
+                    self._wcs_condition.wait()
+
+                updated = self._wcs_files.copy()
+                self._wcs_files.clear()
+
+            # Force a small delay to avoid racing against the camera's frame update
+            time.sleep(1.0)
+            for camera_id, path in updated:
+                if camera_id not in CAMERA_URLS:
+                    print('no pyro address for camera ' + camera_id)
+                    return
+
+                try:
+                    frame = fits.open(path)
+                    frame_ra = frame[0].header['TELRA']
+                    frame_dec = frame[0].header['TELDEC']
+                    frame.close()
+                    args = [
+                        '/usr/local/astrometry/bin/solve-field',
+                        '--no-fits2fits', '--overwrite', '--no-plots',
+                        '--axy', 'none', '--rdls', 'none', '--match', 'none',
+                        '--corr', 'none', '--index-xyls', 'none',
+                        '--solved', 'none', '--scale-units', 'arcminwidth',
+                        '--scale-high', '13.4', '--ra', frame_ra, '--dec', frame_dec,
+                        '--radius', '1.75', path]
+
+                    subprocess.check_call(args, timeout=2.0, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+                    wcs_data = ''
+                    with open(os.path.splitext(path)[0] + '.wcs') as wcs_file:
+                        header = wcs_file.read()
+                        # ds9 will only accept newline-delimited keys
+                        # so we need to reformat the 80-character cards
+                        for line in [header[i:i+80] for i in range(0, len(header), 80)]:
+                            key = line[0:8].strip()
+                            # Discard comment, history, and non-wcs cards
+                            if '=' in line and key not in ['SIMPLE', 'BITPIX', 'NAXIS', 'EXTEND', 'DATE']:
+                                # Strip unnecessary whitespace and comments
+                                value = line[9:].split('/')[0].strip()
+                                wcs_data += key + ' = ' + value + '\n'
+
+                    if len(wcs_data) > 0:
+                        with Pyro4.Proxy(CAMERA_URLS[camera_id]) as camd:
+                            camd.update_previews([('wcs replace', wcs_data)])
+                            print('updated preview wcs')
+
+                except Exception as e:
+                    print('failed to update wcs with error: ' + str(e))
+
     @Pyro4.expose
     def notify_latest_frame(self, camera_id, path):
         """Called by the camera daemons to notify that the latest frame file has been updated"""
-        if self._guide_camera_id != camera_id:
-            return
+        if self._guide_camera_id == camera_id:
+            # The guiding only cares about the latest frame
+            with self._guide_condition:
+                self._guide_latest_frame = path
+                self._guide_condition.notify()
+            print('updated latest frame', camera_id, path)
 
-        # The guiding only cares about the latest frame
-        with self._guide_condition:
-            self._guide_latest_frame = path
-            self._guide_condition.notify()
-        print('updated latest frame', camera_id, path)
+        if self._wcs_enabled:
+            with self._wcs_condition:
+                self._wcs_files.add((camera_id, path))
+                self._wcs_condition.notify()
 
     @Pyro4.expose
     def notify_saved_frame(self, camera_id, path):
@@ -245,10 +318,22 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
+    def enable_wcs(self, enabled):
+        """Enable or disable the online wcs updates"""
+        with TryLock(self._command_lock) as success:
+            if not success:
+                return CommandStatus.Blocked
+
+            self._wcs_enabled = enabled
+
+            return CommandStatus.Succeeded
+
+    @Pyro4.expose
     def report_status(self):
         """Returns a dictionary containing the current pipeline state"""
         return {
             'reduction_enabled': self._reduction_enabled,
+            'wcs_enabled': self._wcs_enabled,
             'guide_camera_id': self._guide_camera_id,
             'guide_background_tile_size': self._guide_background_tile_size,
             'guide_reference_frame': self._guide_reference_frame,

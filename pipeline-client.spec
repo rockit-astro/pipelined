@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-client
-Version:   1.1
+Version:   1.2
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Pipeline client for the Warwick one-metre telescope.
