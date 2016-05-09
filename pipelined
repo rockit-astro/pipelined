@@ -62,7 +62,7 @@ GUIDE_TRANSFORM_MATRICES = {
 
 CAMERA_URLS = {
     'BLUE': 'PYRO:blue_camera_daemon@192.168.0.101:9011',
-    'RED': 'PYRO:red_camera_daemon@192.168.0.101:9012'
+    'RED': 'PYRO:red_camera_daemon@192.168.0.101:9010'
 }
 
 GUIDE_FUDGE_FACTOR = 0.5
