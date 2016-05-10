@@ -29,6 +29,8 @@ import shutil
 import subprocess
 import threading
 import time
+import numpy
+import sep
 from astropy.io import fits
 import Pyro4
 
@@ -76,6 +78,17 @@ ANNOTATION_WCS_SCALE_HIGH = 13.4
 
 # Maximum tcs ra/dec error (degrees)
 ANNOTATION_WCS_SEARCH_RADIUS = 1.75
+
+# Unbinned arcseconds per pixel
+ANNOTATION_FWHM_PLATESCALE = 0.391
+
+# Minimum number of pixels for considering a source for FWHM estimation
+ANNOTATION_FWHM_MINPIX = 16
+
+# Top/bottom margin (in px) to offset the annotation labels
+ANNOTATION_LABEL_MARGIN = 30
+
+ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
 # This should be kept in sync with the dictionary in pipeline
 class CommandStatus:
@@ -217,12 +230,26 @@ class PipelineDaemon:
                 except Exception as e:
                     print('failed to update reduction with error: ' + str(e))
 
-    def __calculate_wcs(self, path):
-        """Solves and returns the WCS headers for the given frame"""
+    def __generate_header_annotations(self, frame):
+        """Returns the XPA commands to display the time and exposure on the live previews"""
+        width = frame.header['NAXIS1']
+        height = frame.header['NAXIS2']
+        date = frame.header['DATE-OBS']
+        exptime = frame.header['EXPTIME']
+        arm = frame.header['INSTRARM']
+
+        return [
+            ('regions', ANNOTATION_LABEL.format(width / 4, height + ANNOTATION_LABEL_MARGIN, date)),
+            ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + ANNOTATION_LABEL_MARGIN,
+                                                '{} @ {:.1f}s'.format(arm, exptime)))
+        ]
+
+    def __generate_wcs_annotations(self, frame, path):
+        """Solves the frame WCS and returns the XPA commands to run on the live previews"""
+        width = frame.header['NAXIS1']
         try:
-            with fits.open(path) as frame:
-                frame_ra = frame[0].header['TELRA']
-                frame_dec = frame[0].header['TELDEC']
+            frame_ra = frame.header['TELRA']
+            frame_dec = frame.header['TELDEC']
 
             args = [
                 '/usr/local/astrometry/bin/solve-field',
@@ -250,11 +277,71 @@ class PipelineDaemon:
                         # Strip unnecessary whitespace and comments
                         value = line[9:].split('/')[0].strip()
                         wcs_data += key + ' = ' + value + '\n'
-            return wcs_data
+            return [
+                ('wcs replace', wcs_data),
+                ('regions', ANNOTATION_LABEL.format(width / 4, -ANNOTATION_LABEL_MARGIN,
+                                                    'WCS: solved'))
+            ]
 
         except Exception as e:
             print('failed to update wcs with error: ' + str(e))
-            return None
+            return [('regions', ANNOTATION_LABEL.format(width / 4, -ANNOTATION_LABEL_MARGIN,
+                                                        'WCS: failed'))]
+
+    def __generate_fwhm_annotations(self, frame, path):
+        """Estimates and the median PSF FWHM and returns the XPA
+           commands to run on the live previews"""
+        width = frame.header['NAXIS1']
+        try:
+            platescale = frame.header['CCD-XBIN'] * ANNOTATION_FWHM_PLATESCALE
+            image = fits.getdata(path).astype(float)
+            bkg = sep.Background(image)
+            subtracted = image - bkg
+
+            thresh = 5 * bkg.globalrms
+            objects = sep.extract(subtracted, thresh)
+            fwhm = []
+            commands = []
+            for star in objects:
+                # Discard spuriously small sources
+                if star['npix'] < ANNOTATION_FWHM_MINPIX:
+                    continue
+
+                x = star['x']
+                y = star['y']
+                a = star['a']
+                b = star['b']
+                theta = star['theta']
+                kronrad, flag = sep.kron_radius(subtracted, x, y, a, b, theta, 6.0)
+                if flag != 0:
+                    continue
+
+                flux, fluxerr, flag = sep.sum_ellipse(subtracted, x, y, a, b, theta,
+                                                      2.5 * kronrad, subpix=1)
+                if flag != 0:
+                    continue
+
+                r, flag = sep.flux_radius(subtracted, x, y, 6.0 * a, 0.5, normflux=flux, subpix=5)
+                if flag != 0:
+                    continue
+
+                fwhm.append(2 * r * platescale)
+                commands.append(('regions', 'image; circle({},{},{}) #select=0 color=red'.format(
+                    x + 1, y + 1, r)))
+
+            if len(fwhm) > 0:
+                median = numpy.median(fwhm)
+                label = 'FWHM: {:.1f} arcsec'.format(median)
+            else:
+                label = 'FWHM: failed'
+            commands.append(('regions', ANNOTATION_LABEL.format(3 * width / 4,
+                                                                -ANNOTATION_LABEL_MARGIN,
+                                                                label)))
+            return commands
+        except Exception as e:
+            print('failed to calculate fwhm with error: ' + str(e))
+            return [('regions', ANNOTATION_LABEL.format(3 * width / 4, -ANNOTATION_LABEL_MARGIN,
+                                                        'FWHM: failed'))]
 
     def __update_annotations(self):
         """Calculates WCS solutions and median seeing for the latest frame previews"""
@@ -276,11 +363,10 @@ class PipelineDaemon:
                     return
 
                 # List of XPA commands to run on the frame previews
-                preview_commands = []
-
-                wcs_data = self.__calculate_wcs(path)
-                if wcs_data is not None and len(wcs_data) > 0:
-                    preview_commands.append(('wcs replace', wcs_data))
+                with fits.open(path) as frame:
+                    preview_commands = self.__generate_header_annotations(frame[0])
+                    preview_commands.extend(self.__generate_wcs_annotations(frame[0], path))
+                    preview_commands.extend(self.__generate_fwhm_annotations(frame[0], path))
 
                 try:
                     with Pyro4.Proxy(CAMERA_URLS[camera_id]) as camd:
