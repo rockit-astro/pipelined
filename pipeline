@@ -72,8 +72,9 @@ def status():
 
     reduction_state = FMT_GREEN + 'ENABLED' if data['reduction_enabled'] else FMT_RED + 'DISABLED'
     print('   Reduction ' + FMT_BOLD + reduction_state + FMT_CLEAR)
-    wcs_state = FMT_GREEN + 'ENABLED' if data['wcs_enabled'] else FMT_RED + 'DISABLED'
-    print('   WCS ' + FMT_BOLD + wcs_state + FMT_CLEAR)
+    annotations_state = FMT_GREEN + 'ENABLED' if data['annotations_enabled'] else \
+        FMT_RED + 'DISABLED'
+    print('   Annotations ' + FMT_BOLD + annotations_state + FMT_CLEAR)
     return 0
 
 def reduction(args):
@@ -84,12 +85,12 @@ def reduction(args):
     print('usage: {} reduction (enable|disable)'.format(SCRIPT_NAME))
     return -1
 
-def wcs(args):
-    """Configure wcs"""
+def annotations(args):
+    """Configure online preview annotations"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
         with Pyro4.Proxy(PIPELINE_URI) as pipeline:
-            return pipeline.enable_wcs(args[0] == 'enable')
-    print('usage: {} wcs (enable|disable)'.format(SCRIPT_NAME))
+            return pipeline.enable_annotations(args[0] == 'enable')
+    print('usage: {} annotations (enable|disable)'.format(SCRIPT_NAME))
     return -1
 
 def print_usage():
@@ -99,7 +100,7 @@ def print_usage():
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
     print('   reduction    configure online reduction')
-    print('   wcs          configure online wcs solutions')
+    print('   annotations  configure online preview annotations')
     print()
 
     return 0
@@ -111,8 +112,8 @@ if __name__ == '__main__':
 
     if sys.argv[1] == 'reduction':
         run_command(lambda: reduction(sys.argv[2:]))
-    if sys.argv[1] == 'wcs':
-        run_command(lambda: wcs(sys.argv[2:]))
+    if sys.argv[1] == 'annotations':
+        run_command(lambda: annotations(sys.argv[2:]))
     if sys.argv[1] == 'status':
         run_command(status)
 

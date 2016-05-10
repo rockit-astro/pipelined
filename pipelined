@@ -115,13 +115,13 @@ class PipelineDaemon:
         reduction_thread.daemon = True
         reduction_thread.start()
 
-        self._wcs_condition = threading.Condition()
-        self._wcs_enabled = False
-        self._wcs_files = set()
+        self._annotations_condition = threading.Condition()
+        self._annotations_enabled = False
+        self._annotations_files = set()
 
-        wcs_thread = threading.Thread(target=self.__update_wcs)
-        wcs_thread.daemon = True
-        wcs_thread.start()
+        annotations_thread = threading.Thread(target=self.__update_annotations)
+        annotations_thread.daemon = True
+        annotations_thread.start()
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -207,17 +207,17 @@ class PipelineDaemon:
                 except Exception as e:
                     print('failed to update reduction with error: ' + str(e))
 
-    def __update_wcs(self):
-        """Calculates WCS solutions for the latest frame previews"""
+    def __update_annotations(self):
+        """Calculates WCS solutions and median seeing for the latest frame previews"""
         while True:
             # Block until a frame is available for processing
             updated = None
-            with self._wcs_condition:
-                while len(self._wcs_files) == 0:
-                    self._wcs_condition.wait()
+            with self._annotations_condition:
+                while len(self._annotations_files) == 0:
+                    self._annotations_condition.wait()
 
-                updated = self._wcs_files.copy()
-                self._wcs_files.clear()
+                updated = self._annotations_files.copy()
+                self._annotations_files.clear()
 
             # Force a small delay to avoid racing against the camera's frame update
             time.sleep(1.0)
@@ -273,10 +273,10 @@ class PipelineDaemon:
                 self._guide_condition.notify()
             print('updated latest frame', camera_id, path)
 
-        if self._wcs_enabled:
-            with self._wcs_condition:
-                self._wcs_files.add((camera_id, path))
-                self._wcs_condition.notify()
+        if self._annotations_enabled:
+            with self._annotations_condition:
+                self._annotations_files.add((camera_id, path))
+                self._annotations_condition.notify()
 
     @Pyro4.expose
     def notify_saved_frame(self, camera_id, path):
@@ -318,13 +318,13 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
-    def enable_wcs(self, enabled):
-        """Enable or disable the online wcs updates"""
+    def enable_annotations(self, enabled):
+        """Enable or disable the live preview annotations"""
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
-            self._wcs_enabled = enabled
+            self._annotations_enabled = enabled
 
             return CommandStatus.Succeeded
 
@@ -333,7 +333,7 @@ class PipelineDaemon:
         """Returns a dictionary containing the current pipeline state"""
         return {
             'reduction_enabled': self._reduction_enabled,
-            'wcs_enabled': self._wcs_enabled,
+            'annotations_enabled': self._annotations_enabled,
             'guide_camera_id': self._guide_camera_id,
             'guide_background_tile_size': self._guide_background_tile_size,
             'guide_reference_frame': self._guide_reference_frame,
