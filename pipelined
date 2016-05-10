@@ -251,6 +251,9 @@ class PipelineDaemon:
             frame_ra = frame.header['TELRA']
             frame_dec = frame.header['TELDEC']
 
+            if frame.header['SHUTTER'] == 'CLOSED':
+                return []
+
             args = [
                 '/usr/local/astrometry/bin/solve-field',
                 '--no-fits2fits', '--overwrite', '--no-plots',
@@ -293,6 +296,9 @@ class PipelineDaemon:
            commands to run on the live previews"""
         width = frame.header['NAXIS1']
         try:
+            if frame.header['SHUTTER'] == 'CLOSED':
+                return []
+
             platescale = frame.header['CCD-XBIN'] * ANNOTATION_FWHM_PLATESCALE
             image = fits.getdata(path).astype(float)
             bkg = sep.Background(image)
