@@ -122,6 +122,7 @@ class PipelineDaemon:
         self._guide_latest_frame = None
         self._guide_x_binning = 1
         self._guide_y_binning = 1
+        self._guide_cos_dec = 1
         self._guide_background_tile_size = 0
         self._guide_reference_frame = None
         self._guide_last_guide_frame = None
@@ -167,6 +168,18 @@ class PipelineDaemon:
                     reference = fits.open(GUIDE_REFERENCE_FRAME_PATH)
                     self._guide_x_binning = reference[0].header['CCD-XBIN']
                     self._guide_y_binning = reference[0].header['CCD-YBIN']
+
+                    # RA becomes compressed away from the equator
+                    # Calculate the correction scale factor
+                    dec = reference[0].header['TELDEC']
+                    parts = dec.split(':')
+
+                    # Sign doesn't matter, so discard immediately
+                    a = abs(float(parts[0]))
+                    b = float(parts[1])
+                    c = float(parts[2])
+                    self._guide_cos_dec = math.cos((a + b / 60 + c / 3600) * math.pi / 180)
+
                     reference.close()
                 except Exception as e:
                     print('failed with error: ' + str(e))
@@ -189,7 +202,7 @@ class PipelineDaemon:
                 dy = float(coords[1])
 
                 # First-order approximated offset in ra, dec (degrees)
-                dra = (t[0] * dx + t[1] * dy) * self._guide_x_binning
+                dra = (t[0] * dx + t[1] * dy) * self._guide_x_binning / self._guide_cos_dec
                 ddec = (t[2] * dx + t[3] * dy) * self._guide_y_binning
 
                 # Calculate actual telescope offset by running offsets through PID loop
