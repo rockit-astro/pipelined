@@ -75,6 +75,11 @@ def status():
     annotations_state = FMT_GREEN + 'ENABLED' if data['annotations_enabled'] else \
         FMT_RED + 'DISABLED'
     print('   Annotations ' + FMT_BOLD + annotations_state + FMT_CLEAR)
+
+    print('   Dashboard preview contrast: ' + FMT_BOLD + str(data['dashboard_min_threshold']) + \
+          FMT_CLEAR + ' - ' + FMT_BOLD + str(data['dashboard_max_threshold']) + FMT_CLEAR + '%')
+    print('   Dashboard thumbail size: ' + FMT_BOLD + str(data['dashboard_thumb_size']) + \
+          FMT_CLEAR + ' px')
     return 0
 
 def reduction(args):
@@ -82,7 +87,7 @@ def reduction(args):
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
         with Pyro4.Proxy(PIPELINE_URI) as pipeline:
             return pipeline.enable_reduction(args[0] == 'enable')
-    print('usage: {} reduction (enable|disable)'.format(SCRIPT_NAME))
+    print('usage: {} reduction [enable|disable]'.format(SCRIPT_NAME))
     return -1
 
 def annotations(args):
@@ -90,7 +95,22 @@ def annotations(args):
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
         with Pyro4.Proxy(PIPELINE_URI) as pipeline:
             return pipeline.enable_annotations(args[0] == 'enable')
-    print('usage: {} annotations (enable|disable)'.format(SCRIPT_NAME))
+    print('usage: {} annotations [enable|disable]'.format(SCRIPT_NAME))
+    return -1
+
+def dashboard(args):
+    """Configure dashboard preview generation"""
+    if len(args) == 2 and (args[0] == 'min' or args[0] == 'max' or args[0] == 'thumb'):
+        with Pyro4.Proxy(PIPELINE_URI) as pipeline:
+            value = int(args[1])
+            if args[0] == 'min':
+                return pipeline.set_dashboard_min_threshold(value)
+            if args[0] == 'max':
+                return pipeline.set_dashboard_max_threshold(value)
+            if args[0] == 'thumb':
+                return pipeline.set_dashboard_thumb_size(value)
+
+    print('usage: {} dashboard [min|max|thumb] <value>'.format(SCRIPT_NAME))
     return -1
 
 def print_usage():
@@ -101,6 +121,7 @@ def print_usage():
     print('   status       print a human-readable summary of the pipeline status')
     print('   reduction    configure online reduction')
     print('   annotations  configure online preview annotations')
+    print('   dashboard    configure dashboard preview generation')
     print()
 
     return 0
@@ -114,6 +135,8 @@ if __name__ == '__main__':
         run_command(lambda: reduction(sys.argv[2:]))
     if sys.argv[1] == 'annotations':
         run_command(lambda: annotations(sys.argv[2:]))
+    if sys.argv[1] == 'dashboard':
+        run_command(lambda: dashboard(sys.argv[2:]))
     if sys.argv[1] == 'status':
         run_command(status)
 

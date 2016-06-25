@@ -23,8 +23,11 @@
 # pylint: disable=invalid-name
 # pylint: disable=too-many-instance-attributes
 
+import json
 import math
 import os
+from PIL import Image, ImageOps
+import re
 import shutil
 import subprocess
 import threading
@@ -113,6 +116,16 @@ class TryLock(object):
             self._lock.release()
             self._locked = False
 
+def rescale_image_data(data, clip_low, clip_high):
+    """ Returns a normalised array where clip_low percent of the pixels are 0 and
+        clip_high percent of the pixels are 255
+    """
+    high = numpy.percentile(data, clip_high)
+    low = numpy.percentile(data, clip_low)
+    scale = 255. / (high - low)
+    data = numpy.clip(data, low, high)
+    return scale * (data - low)
+
 class PipelineDaemon:
     """Daemon interface for data pipeline"""
     def __init__(self):
@@ -146,6 +159,20 @@ class PipelineDaemon:
         annotations_thread = threading.Thread(target=self.__update_annotations)
         annotations_thread.daemon = True
         annotations_thread.start()
+
+        self._dashboard_condition = threading.Condition()
+        self._dashboard_enabled = False
+        self._dashboard_update_blue = None
+        self._dashboard_update_red = None
+
+        # Min and max percentage thresholds to use for the preview pngs
+        self._dashboard_min_threshold = 5
+        self._dashboard_max_threshold = 95
+        self._dashboard_thumb_size = 512
+
+        dashboard_thread = threading.Thread(target=self.__update_dashboard_data)
+        dashboard_thread.daemon = True
+        dashboard_thread.start()
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -242,6 +269,59 @@ class PipelineDaemon:
                     subprocess.check_call(['/home/saft/src/tsreduce/tsreduce', 'plot', f])
                 except Exception as e:
                     print('failed to update reduction with error: ' + str(e))
+
+    def __update_dashboard_data(self):
+        """Generates the png and json files displayed in the web dashboard"""
+        while True:
+            # Block until a frame is available for processing
+            updated = []
+            with self._dashboard_condition:
+                while self._dashboard_update_blue is None and \
+                        self._dashboard_update_red is None:
+                    self._dashboard_condition.wait()
+
+                if self._dashboard_update_blue is not None:
+                    updated.append(self._dashboard_update_blue)
+                    self._dashboard_update_blue = None
+
+                if self._dashboard_update_red is not None:
+                    updated.append(self._dashboard_update_red)
+                    self._dashboard_update_red = None
+
+            for path in updated:
+                try:
+                    with fits.open(path) as frame:
+                        h = frame[0].header
+
+                        # Trim overscan regions
+                        r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', h['IMAG-RGN']).groups()
+                        data = frame[0].data[int(r[2])-1:int(r[3]), int(r[0])-1:int(r[1])]
+
+                        arm = h['INSTRARM']
+                        metadata = {
+                            'date': h['DATE-OBS'],
+                            'exptime': h['EXPTIME'],
+                            'saved': h['FILESAVE'],
+                            'filename': h['FILENAME'],
+                        }
+
+                    scaled = rescale_image_data(data, self._dashboard_min_threshold,
+                                                self._dashboard_max_threshold)
+                    png = Image.fromarray(scaled).convert('RGB')
+
+                    # Red arm flips vertically only
+                    # Blue arm flips horizontally and vertically
+                    png = ImageOps.flip(png)
+                    if arm == 'BLUE':
+                        png = ImageOps.mirror(png)
+
+                    png.save('/var/tmp/dashboard-' + arm + '.png', "PNG", clobber=True)
+                    png.thumbnail((self._dashboard_thumb_size, self._dashboard_thumb_size))
+                    png.save('/var/tmp/dashboard-' + arm + '-thumb.png', "PNG", clobber=True)
+                    with open('/var/tmp/dashboard-' + arm + '.json', 'w') as outfile:
+                        json.dump(metadata, outfile)
+                except Exception as e:
+                    print('failed to generate dashboard preview with error: ' + str(e))
 
     def __generate_header_annotations(self, frame):
         """Returns the XPA commands to display the time and exposure on the live previews"""
@@ -363,7 +443,8 @@ class PipelineDaemon:
                                                         'FWHM: failed'))]
 
     def __update_annotations(self):
-        """Calculates WCS solutions and median seeing for the latest frame previews"""
+        """Calculates WCS solutions and median seeing for the latest frame previews.
+           Also updates web dashboard preview"""
         while True:
             # Block until a frame is available for processing
             updated = None
@@ -409,6 +490,13 @@ class PipelineDaemon:
                 self._annotations_files.add((camera_id, path))
                 self._annotations_condition.notify()
 
+        with self._dashboard_condition:
+            if camera_id == 'BLUE':
+                self._dashboard_update_blue = path
+            elif camera_id == 'RED':
+                self._dashboard_update_red = path
+            self._dashboard_condition.notify()
+
     @Pyro4.expose
     def notify_saved_frame(self, camera_id, path):
         """Called by the camera daemons to notify that a new frame has been saved to disk"""
@@ -440,24 +528,32 @@ class PipelineDaemon:
     @Pyro4.expose
     def enable_reduction(self, enabled):
         """Enable or disable the online reduction"""
-        with TryLock(self._command_lock) as success:
-            if not success:
-                return CommandStatus.Blocked
-
-            self._reduction_enabled = enabled
-
-            return CommandStatus.Succeeded
+        self._reduction_enabled = enabled
+        return CommandStatus.Succeeded
 
     @Pyro4.expose
     def enable_annotations(self, enabled):
         """Enable or disable the live preview annotations"""
-        with TryLock(self._command_lock) as success:
-            if not success:
-                return CommandStatus.Blocked
+        self._annotations_enabled = enabled
+        return CommandStatus.Succeeded
 
-            self._annotations_enabled = enabled
+    @Pyro4.expose
+    def set_dashboard_min_threshold(self, percent):
+        """Sets the minimum contrast percentage for the web dashboard preview"""
+        self._dashboard_min_threshold = percent
+        return CommandStatus.Succeeded
 
-            return CommandStatus.Succeeded
+    @Pyro4.expose
+    def set_dashboard_max_threshold(self, percent):
+        """Sets the maximum contrast percentage for the web dashboard preview"""
+        self._dashboard_max_threshold = percent
+        return CommandStatus.Succeeded
+
+    @Pyro4.expose
+    def set_dashboard_thumb_size(self, max_size):
+        """Sets the maximum dimension of the web dashboard preview thumbnails"""
+        self._dashboard_thumb_size = max_size
+        return CommandStatus.Succeeded
 
     @Pyro4.expose
     def report_status(self):
@@ -468,7 +564,11 @@ class PipelineDaemon:
             'guide_camera_id': self._guide_camera_id,
             'guide_background_tile_size': self._guide_background_tile_size,
             'guide_reference_frame': self._guide_reference_frame,
-            'guide_last_guide_frame': self._guide_last_guide_frame
+            'guide_last_guide_frame': self._guide_last_guide_frame,
+
+            'dashboard_min_threshold': self._dashboard_min_threshold,
+            'dashboard_max_threshold': self._dashboard_max_threshold,
+            'dashboard_thumb_size': self._dashboard_thumb_size
         }
 
 def spawn_daemon():
