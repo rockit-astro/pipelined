@@ -153,7 +153,7 @@ class PipelineDaemon:
         reduction_thread.start()
 
         self._annotations_condition = threading.Condition()
-        self._annotations_enabled = False
+        self._annotations_enabled = True
         self._annotations_files = set()
 
         annotations_thread = threading.Thread(target=self.__update_annotations)
