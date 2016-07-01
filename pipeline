@@ -23,14 +23,8 @@
 import os
 import sys
 import Pyro4
+import warwick.observatory as observatory
 
-PYRO_COMM_TIMEOUT = 5
-
-PIPELINE_HOST = '192.168.0.101'
-PIPELINE_PORT = 9012
-PIPELINE_NAME = 'pipeline_daemon'
-
-PIPELINE_URI = 'PYRO:' + PIPELINE_NAME + '@' + PIPELINE_HOST + ':' + str(PIPELINE_PORT)
 SCRIPT_NAME = os.path.basename(sys.argv[0])
 sys.excepthook = Pyro4.util.excepthook
 
@@ -62,7 +56,7 @@ def run_command(command):
 
 def status():
     """Reports the current pipeline status"""
-    with Pyro4.Proxy(PIPELINE_URI) as pipeline:
+    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
         data = pipeline.report_status()
 
     if data['guide_camera_id'] is None:
@@ -85,7 +79,7 @@ def status():
 def reduction(args):
     """Configure reduction"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with Pyro4.Proxy(PIPELINE_URI) as pipeline:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.enable_reduction(args[0] == 'enable')
     print('usage: {} reduction [enable|disable]'.format(SCRIPT_NAME))
     return -1
@@ -93,7 +87,7 @@ def reduction(args):
 def annotations(args):
     """Configure online preview annotations"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with Pyro4.Proxy(PIPELINE_URI) as pipeline:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.enable_annotations(args[0] == 'enable')
     print('usage: {} annotations [enable|disable]'.format(SCRIPT_NAME))
     return -1
@@ -101,7 +95,7 @@ def annotations(args):
 def dashboard(args):
     """Configure dashboard preview generation"""
     if len(args) == 2 and (args[0] == 'min' or args[0] == 'max' or args[0] == 'thumb'):
-        with Pyro4.Proxy(PIPELINE_URI) as pipeline:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
             value = int(args[1])
             if args[0] == 'min':
                 return pipeline.set_dashboard_min_threshold(value)
@@ -127,7 +121,6 @@ def print_usage():
     return 0
 
 if __name__ == '__main__':
-    Pyro4.config.COMMTIMEOUT = PYRO_COMM_TIMEOUT
     if len(sys.argv) == 1:
         sys.exit(print_usage())
 

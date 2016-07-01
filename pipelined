@@ -36,21 +36,11 @@ import numpy
 import sep
 from astropy.io import fits
 import Pyro4
+import warwick.observatory as observatory
+from warwick.observatory import TryLock
 
 # Set automatically when generating RPM package
 SOFTWARE_VERSION = 'UNKNOWN'
-
-PYRO_COMM_TIMEOUT = 5
-
-PIPELINE_HOST = '192.168.0.101'
-PIPELINE_PORT = 9012
-PIPELINE_NAME = 'pipeline_daemon'
-
-TELD_HOST = '192.168.0.101'
-TELD_PORT = 9003
-TELD_NAME = 'telescope_daemon'
-
-TELD_URL = 'PYRO:' + TELD_NAME + '@' + TELD_HOST + ':' + str(TELD_PORT)
 
 PIXELSHIFT_PATH = '/home/saft/src/pixelshift/pixelshift'
 
@@ -66,12 +56,11 @@ GUIDE_TRANSFORM_MATRICES = {
 }
 
 CAMERA_URLS = {
-    'BLUE': 'PYRO:blue_camera_daemon@192.168.0.101:9011',
-    'RED': 'PYRO:red_camera_daemon@192.168.0.101:9010'
+    'BLUE': observatory.daemons.onemetre_blue_camera,
+    'RED': observatory.daemons.onemetre_red_camera
 }
 
 GUIDE_FUDGE_FACTOR = 0.5
-
 
 # Time limit (seconds) allowed to solve the WCS coordinates of a preview frame
 ANNOTATION_WCS_LIMIT = 2.0
@@ -100,21 +89,6 @@ class CommandStatus:
     Succeeded = 0
     Failed = 1
     Blocked = 2
-
-class TryLock(object):
-    """Helper object for use with `with` statements"""
-    def __init__(self, lock):
-        self._lock = lock
-        self._locked = False
-
-    def __enter__(self):
-        self._locked = self._lock.acquire(False)
-        return self._locked
-
-    def __exit__(self, *args):
-        if self._locked:
-            self._lock.release()
-            self._locked = False
 
 def rescale_image_data(data, clip_low, clip_high):
     """ Returns a normalised array where clip_low percent of the pixels are 0 and
@@ -189,6 +163,7 @@ class PipelineDaemon:
             # New guide session: take a copy of this frame to use as the reference
             if self._guide_reference_frame is None:
                 print('taking', frame, 'as new guide reference')
+                observatory.log.info('pipelined', 'Initializing autoguider')
                 try:
                     self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
                     shutil.copy(frame, GUIDE_REFERENCE_FRAME_PATH)
@@ -210,6 +185,8 @@ class PipelineDaemon:
                     reference.close()
                 except Exception as e:
                     print('failed with error: ' + str(e))
+                    observatory.log.error('pipelined', 'Failed to initialize autoguider (' \
+                                          + str(e) + ')')
                 continue
 
             if self._guide_camera_id not in GUIDE_TRANSFORM_MATRICES:
@@ -241,10 +218,12 @@ class PipelineDaemon:
 
                 print('offset px: {} {}; arcsec: {} {}'.format(dx, dy, 3600 * dra, 3600 * ddec))
 
-                with Pyro4.Proxy(TELD_URL) as teld:
+                with observatory.daemons.onemetre_telescope.connect() as teld:
                     teld.offset_radec_guiding(guide_offset_ra, guide_offset_dec)
             except Exception as e:
                 print('failed to update guiding with error: ' + str(e))
+                observatory.log.error('pipelined', 'Failed to calculate guide offset (' \
+                                      + str(e) + ')')
 
     def __update_reduction(self):
         """Updates the online reduction as frames are saved to disk"""
@@ -322,6 +301,8 @@ class PipelineDaemon:
                         json.dump(metadata, outfile)
                 except Exception as e:
                     print('failed to generate dashboard preview with error: ' + str(e))
+                    observatory.log.error('pipelined', 'Failed to generate dashboard data (' \
+                                          + str(e) + ')')
 
     def __generate_header_annotations(self, frame):
         """Returns the XPA commands to display the time and exposure on the live previews"""
@@ -469,7 +450,7 @@ class PipelineDaemon:
                     preview_commands.extend(self.__generate_fwhm_annotations(frame[0], path))
 
                 try:
-                    with Pyro4.Proxy(CAMERA_URLS[camera_id]) as camd:
+                    with CAMERA_URLS[camera_id].connect() as camd:
                         camd.update_previews(preview_commands)
                         print('updated preview annotations')
                 except Exception as e:
@@ -522,37 +503,47 @@ class PipelineDaemon:
             self._guide_background_tile_size = background_tile_size
             self._guide_reference_frame = None
             self._guide_last_guide_frame = None
-
+            observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
+                                 + ' camera and ' + str(background_tile_size) + ' px tiles')
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def enable_reduction(self, enabled):
         """Enable or disable the online reduction"""
         self._reduction_enabled = enabled
+        observatory.log.info('pipelined', 'Reduction ' + ('enabled' if enabled else 'disabled'))
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def enable_annotations(self, enabled):
         """Enable or disable the live preview annotations"""
         self._annotations_enabled = enabled
+        observatory.log.info('pipelined', 'Preview annotations ' \
+                             + ('enabled' if enabled else 'disabled'))
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_min_threshold(self, percent):
         """Sets the minimum contrast percentage for the web dashboard preview"""
         self._dashboard_min_threshold = percent
+        observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
+                             + str(percent) + '%')
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_max_threshold(self, percent):
         """Sets the maximum contrast percentage for the web dashboard preview"""
         self._dashboard_max_threshold = percent
+        observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
+                             + str(percent) + '%')
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_thumb_size(self, max_size):
         """Sets the maximum dimension of the web dashboard preview thumbnails"""
         self._dashboard_thumb_size = max_size
+        observatory.log.info('pipelined', 'Dashboard preview thumbnail size set to ' \
+                             + str(max_size) + ' px')
         return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -571,18 +562,5 @@ class PipelineDaemon:
             'dashboard_thumb_size': self._dashboard_thumb_size
         }
 
-def spawn_daemon():
-    """Spawns the daemon and registers it with Pyro"""
-    Pyro4.config.COMMTIMEOUT = PYRO_COMM_TIMEOUT
-    Pyro4.config.REQUIRE_EXPOSE = True
-
-    pyro = Pyro4.Daemon(host=PIPELINE_HOST, port=PIPELINE_PORT)
-    pipeline = PipelineDaemon()
-    uri = pyro.register(pipeline, objectId=PIPELINE_NAME)
-
-    print('Starting pipeline daemon with Pyro ID:', uri)
-    pyro.requestLoop()
-    print('Stopping pipeline daemon with Pyro ID:', uri)
-
 if __name__ == '__main__':
-    spawn_daemon()
+    observatory.daemons.onemetre_pipeline.launch(PipelineDaemon())
