@@ -3,7 +3,36 @@ _pipeline()
     local cur opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
-    opts="status reduction annotations"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    prevprev="${COMP_WORDS[COMP_CWORD-2]}"
+    opts="status preview archive dir prefix frameno wcs fwhm intstats dashboard object type"
+    case "${prev}" in
+        preview|frameno|archive)
+            opts="blue red"
+            ;;
+        wcs|fwhm|intstats|compression)
+            opts="enable disable"
+            ;;
+        dashboard)
+            opts="enable disable min max thumb"
+            ;;
+        type)
+            opts="bias dark flat science junk"
+            ;;
+        blue|red)
+            if [ "${prevprev}" == "archive" ]; then
+                opts="enable disable"
+            fi
+            ;;
+        dir)
+            # Fall back to readline completion for dirs (from the -o default)
+            compopt -o default
+            COMPREPLY=()
+            return 0
+            ;;
+        *)
+            ;;
+    esac
 
     COMPREPLY=($(compgen -W "${opts}" -- ${cur}))
     return 0

@@ -21,7 +21,11 @@
 # pylint: disable=broad-except
 
 import os
+from pathlib import Path
+import random
+import subprocess
 import sys
+import pyds9
 import Pyro4
 import warwick.observatory as observatory
 
@@ -38,6 +42,18 @@ STATUS_CODES = {
     # General error codes
     1: 'error: command failed',
     2: 'error: another command is already running',
+    50: 'error: directory doesn\'t exist or isn\'t writable',
+
+    -101: 'error: unable to communicate with pipeline daemon',
+}
+
+# Mapping used for the 'type' command
+TYPE_VALUES = {
+    'bias': 'BIAS',
+    'dark': 'DARK',
+    'flat': 'FLAT',
+    'science': 'SCIENCE',
+    'junk': 'JUNK'
 }
 
 def run_command(command):
@@ -59,42 +75,60 @@ def status():
     with observatory.daemons.onemetre_pipeline.connect() as pipeline:
         data = pipeline.report_status()
 
+    print('Autoguiding:')
     if data['guide_camera_id'] is None:
         print('   Guiding ' + FMT_BOLD + FMT_RED + 'DISABLED' + FMT_CLEAR)
     else:
         print('   Guiding on ' + FMT_BOLD + data['guide_camera_id'] + FMT_CLEAR + ' camera')
 
-    reduction_state = FMT_GREEN + 'ENABLED' if data['reduction_enabled'] else FMT_RED + 'DISABLED'
-    print('   Reduction ' + FMT_BOLD + reduction_state + FMT_CLEAR)
-    annotations_state = FMT_GREEN + 'ENABLED' if data['annotations_enabled'] else \
-        FMT_RED + 'DISABLED'
-    print('   Annotations ' + FMT_BOLD + annotations_state + FMT_CLEAR)
+    print('Frame Archiving:')
+    print('   Archive directory is ' + FMT_BOLD + data['archive_directory'] + FMT_CLEAR)
+    print('   Frame type is ' + FMT_BOLD + data['frame_type'] + FMT_CLEAR)
+    if data['frame_type'] == 'SCIENCE':
+        print('   Frame object is ' + FMT_BOLD + data['frame_object'] + FMT_CLEAR)
+    else:
+        print('   Frame object not written (requires SCIENCE type)')
 
-    print('   Dashboard preview contrast: ' + FMT_BOLD + str(data['dashboard_min_threshold']) + \
+    blue = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['BLUE'] else FMT_RED + 'DISCARDED'
+    if data['archive_enabled']['BLUE']:
+        blue += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['BLUE'] + FMT_CLEAR + ')'
+    print('   Blue camera frames are ' + FMT_BOLD + blue + FMT_CLEAR)
+
+    red = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['RED'] else FMT_RED + 'DISCARDED'
+    if data['archive_enabled']['RED']:
+        red += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['RED'] + FMT_CLEAR + ')'
+    print('   Red camera frames are ' + FMT_BOLD + red + FMT_CLEAR)
+
+    print('Pipeline flags:')
+    wcs = FMT_GREEN + 'ENABLED' if data['wcs_enabled'] else FMT_RED + 'DISABLED'
+    print('   WCS solutions are ' + FMT_BOLD + wcs + FMT_CLEAR)
+
+    fwhm = FMT_GREEN + 'ENABLED' if data['fwhm_enabled'] else FMT_RED + 'DISABLED'
+    print('   FWHM calculation is ' + FMT_BOLD + fwhm + FMT_CLEAR)
+
+    intstats = FMT_GREEN + 'ENABLED' if data['intensity_stats_enabled'] else FMT_RED + 'DISABLED'
+    print('   Intensity statistics are ' + FMT_BOLD + intstats + FMT_CLEAR)
+
+    compress = FMT_GREEN + 'ENABLED' if data['compression_enabled'] else FMT_RED + 'DISABLED'
+    print('   Frame compression is ' + FMT_BOLD + compress + FMT_CLEAR)
+
+    print('Web Dashboard:')
+    dash = FMT_GREEN + 'ENABLED' if data['dashboard_enabled'] else FMT_RED + 'DISABLED'
+    print('   Updates are ' + FMT_BOLD + dash + FMT_CLEAR)
+
+    print('   Preview contrast: ' + FMT_BOLD + str(data['dashboard_min_threshold']) + \
           FMT_CLEAR + ' - ' + FMT_BOLD + str(data['dashboard_max_threshold']) + FMT_CLEAR + '%')
-    print('   Dashboard thumbail size: ' + FMT_BOLD + str(data['dashboard_thumb_size']) + \
+    print('   Thumbnail size: ' + FMT_BOLD + str(data['dashboard_thumb_size']) + \
           FMT_CLEAR + ' px')
     return 0
 
-def reduction(args):
-    """Configure reduction"""
-    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
-            return pipeline.enable_reduction(args[0] == 'enable')
-    print('usage: {} reduction [enable|disable]'.format(SCRIPT_NAME))
-    return -1
-
-def annotations(args):
-    """Configure online preview annotations"""
-    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
-            return pipeline.enable_annotations(args[0] == 'enable')
-    print('usage: {} annotations [enable|disable]'.format(SCRIPT_NAME))
-    return -1
-
 def dashboard(args):
     """Configure dashboard preview generation"""
-    if len(args) == 2 and (args[0] == 'min' or args[0] == 'max' or args[0] == 'thumb'):
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_dashboard(args[0] == 'enable')
+
+    elif len(args) == 2 and (args[0] == 'min' or args[0] == 'max' or args[0] == 'thumb'):
         with observatory.daemons.onemetre_pipeline.connect() as pipeline:
             value = int(args[1])
             if args[0] == 'min':
@@ -104,8 +138,145 @@ def dashboard(args):
             if args[0] == 'thumb':
                 return pipeline.set_dashboard_thumb_size(value)
 
-    print('usage: {} dashboard [min|max|thumb] <value>'.format(SCRIPT_NAME))
+    if len(args) == 0:
+        print('usage: {} dashboard [enable|disable|min|max|thumb]'.format(SCRIPT_NAME))
+    else:
+        print('usage: {} dashboard [min|max|thumb] <value>'.format(SCRIPT_NAME))
     return -1
+
+def set_archive_directory(args):
+    """Set the frame archive directory"""
+    if len(args) == 1:
+        # Validate path and make it absolute
+        try:
+            path = str(Path(args[0]).resolve())
+        except Exception:
+            return 50
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_archive_directory(path)
+    print('usage: {} dir <output frame directory>'.format(SCRIPT_NAME))
+    return -1
+
+def set_prefix(args):
+    """Set the output frame filename prefix"""
+    if len(args) == 1:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_output_frame_prefix(args[0])
+    print('usage: {} prefix <output frame prefix>'.format(SCRIPT_NAME))
+    return -1
+
+def set_object(args):
+    """Set the OBJECT header keyword"""
+    if len(args) == 1:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_frame_object(args[0])
+    print('usage: {} object <object name>'.format(SCRIPT_NAME))
+    return -1
+
+def set_type(args):
+    """Set the IMAGETYP header keyword"""
+    if len(args) == 1 and args[0] in TYPE_VALUES:
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_frame_type(TYPE_VALUES[args[0]])
+    print('usage: {} type (bias|dark|flat|science|junk)'.format(SCRIPT_NAME))
+    return -1
+
+def set_frame_number(args):
+    """Set the output frame number"""
+    if len(args) == 2 and (args[0] == 'blue' or args[0] == 'red'):
+        camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_output_frame_number(camera_id, args[1])
+    print('usage: {} frameno (blue|red) <output frame number>'.format(SCRIPT_NAME))
+    return -1
+
+def set_archive(args):
+    """Enable or disable archiving of acquired frames to disk"""
+    if len(args) == 2 and (args[0] == 'blue' or args[0] == 'red') and \
+            (args[1] == 'enable' or args[1] == 'disable'):
+        camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_archive(camera_id, args[1] == 'enable')
+
+    print('usage: {} save (blue|red) (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+def set_wcs(args):
+    """Enable or disable wcs solutions for acquired frames"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_wcs(args[0] == 'enable')
+
+    print('usage: {} wcs (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+def set_fwhm(args):
+    """Enable or disable FWHM calculation for acquired frames"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_fwhm(args[0] == 'enable')
+
+    print('usage: {} fwhm (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+def set_intensity_stats(args):
+    """Enable or disable intensity statistics for acquired frames"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_intensity_stats(args[0] == 'enable')
+
+    print('usage: {} intstats (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+def set_compression(args):
+    """Enable or disable frame gz compression"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+            return pipeline.set_compression(args[0] == 'enable')
+
+    print('usage: {} compression (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+def register_preview(args):
+    """Open a new ds9 preview window and register it with the server"""
+    if len(args) != 1 or (args[0] != 'blue' and args[0] != 'red'):
+        print('usage: {} preview (blue|red)'.format(SCRIPT_NAME))
+        return -1
+
+    camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
+
+    try:
+        # Generate a random name to avoid collisions
+        names = pyds9.ds9_targets()
+        while True:
+            name = 'preview-{}-{:06d}'.format(camera_id, random.randint(0, 999999))
+            if names is None or not any(n.startswith('DS9:'+name) for n in names):
+                break
+
+        ds9 = pyds9.DS9(name, wait=10)
+        address = ds9.access().split(' ')[-1]
+
+        # Register access for camd to update the preview
+        command = ['xpaset', '-p', name, '-acl', observatory.daemons.onemetre_pipeline.host, '+']
+        subprocess.check_call(command, timeout=5)
+
+        ds9.set('view filename no')
+        ds9.set('view physical no')
+        ds9.set('view frame no')
+        ds9.set('view buttons no')
+        ds9.set('view colorbar no')
+        ds9.set('view layout vertical')
+        ds9.set('scale mode zscale')
+        ds9.set('width 512')
+        ds9.set('height 572')
+        ds9.set('background black')
+        ds9.set('zoom 0.5')
+    except Exception:
+        print('error: failed to open DS9 preview window')
+        return -1
+
+    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        return pipeline.register_preview(camera_id, address)
 
 def print_usage():
     """Prints the utility help"""
@@ -113,23 +284,51 @@ def print_usage():
     print()
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
-    print('   reduction    configure online reduction')
-    print('   annotations  configure online preview annotations')
+    print('   preview      open a ds9 window to preview acquired frames')
+    print('output frame commands')
+    print('   archive      enable or disable frame archiving')
+    print('   dir          set archive directory')
+    print('   prefix       set archive frame prefix')
+    print('   frameno      set archive frame number')
+    print('   object       set metadata object name')
+    print('   type         set metadata frame type')
+    print('reduction flags:')
+    print('   wcs          enable or disable WCS solutions')
+    print('   fwhm         enable or disable WCS solutions')
+    print('   intstats     enable or disable intensity statistics')
     print('   dashboard    configure dashboard preview generation')
+    print('   compression  configure frame gz compression')
     print()
-
     return 0
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         sys.exit(print_usage())
 
-    if sys.argv[1] == 'reduction':
-        run_command(lambda: reduction(sys.argv[2:]))
-    if sys.argv[1] == 'annotations':
-        run_command(lambda: annotations(sys.argv[2:]))
+    if sys.argv[1] == 'archive':
+        run_command(lambda: set_archive(sys.argv[2:]))
+    if sys.argv[1] == 'dir':
+        run_command(lambda: set_archive_directory(sys.argv[2:]))
+    if sys.argv[1] == 'prefix':
+        run_command(lambda: set_prefix(sys.argv[2:]))
+    if sys.argv[1] == 'frameno':
+        run_command(lambda: set_frame_number(sys.argv[2:]))
+    if sys.argv[1] == 'object':
+        run_command(lambda: set_object(sys.argv[2:]))
+    if sys.argv[1] == 'type':
+        run_command(lambda: set_type(sys.argv[2:]))
+    if sys.argv[1] == 'wcs':
+        run_command(lambda: set_wcs(sys.argv[2:]))
+    if sys.argv[1] == 'fwhm':
+        run_command(lambda: set_fwhm(sys.argv[2:]))
+    if sys.argv[1] == 'intstats':
+        run_command(lambda: set_intensity_stats(sys.argv[2:]))
+    if sys.argv[1] == 'preview':
+        run_command(lambda: register_preview(sys.argv[2:]))
     if sys.argv[1] == 'dashboard':
         run_command(lambda: dashboard(sys.argv[2:]))
+    if sys.argv[1] == 'compression':
+        run_command(lambda: set_compression(sys.argv[2:]))
     if sys.argv[1] == 'status':
         run_command(status)
 
