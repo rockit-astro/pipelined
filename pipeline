@@ -90,13 +90,11 @@ def status():
         print('   Frame object not written (requires SCIENCE type)')
 
     blue = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['BLUE'] else FMT_RED + 'DISCARDED'
-    if data['archive_enabled']['BLUE']:
-        blue += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['BLUE'] + FMT_CLEAR + ')'
+    blue += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['BLUE'] + FMT_CLEAR + ')'
     print('   Blue camera frames are ' + FMT_BOLD + blue + FMT_CLEAR)
 
     red = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['RED'] else FMT_RED + 'DISCARDED'
-    if data['archive_enabled']['RED']:
-        red += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['RED'] + FMT_CLEAR + ')'
+    red += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['RED'] + FMT_CLEAR + ')'
     print('   Red camera frames are ' + FMT_BOLD + red + FMT_CLEAR)
 
     print('Pipeline flags:')
