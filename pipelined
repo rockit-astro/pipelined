@@ -703,10 +703,8 @@ class PipelineDaemon:
                         steps.append('dashboard')
 
                 process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
-
-                print('processed ' + loadpath + ' in ' + str(process_time) + ' seconds')
-                observatory.log.info('pipelined', 'Processed ' + loadpath + ' in ' \
-                                     + str(round(process_time, 2)) + 's (' + ', '.join(steps) + ')')
+                print('processed ' + loadpath + ' in ' + str(round(process_time, 2)) + 's (' \
+                      + ', '.join(steps) + ')')
 
             except Exception as e:
                 print('Unexpected exception while processing ' + loadpath + ': ' + str(e))
