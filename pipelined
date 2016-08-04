@@ -740,8 +740,12 @@ class PipelineDaemon:
             self._guide_background_tile_size = background_tile_size
             self._guide_reference_frame = None
             self._guide_last_guide_frame = None
-            observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
-                                 + ' camera and ' + str(background_tile_size) + ' px tiles')
+
+            if camera_id is not None:
+                observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
+                                     + ' camera and ' + str(background_tile_size) + ' px tiles')
+            else:
+                observatory.log.info('pipelined', 'Disabled autoguiding')
             return CommandStatus.Succeeded
 
     @Pyro4.expose
