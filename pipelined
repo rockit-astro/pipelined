@@ -693,8 +693,11 @@ class PipelineDaemon:
             except Exception as e:
                 print('Unexpected exception while processing ' + loadpath + ': ' + str(e))
             finally:
-                os.remove(loadpath)
-                print('Deleting temporary frame: ' + loadpath)
+                try:
+                    os.remove(loadpath)
+                    print('Deleting temporary frame: ' + loadpath)
+                except Exception:
+                    print('Failed to delete temporary frame: ' + loadpath)
                 process_queue.task_done()
 
     @Pyro4.expose
