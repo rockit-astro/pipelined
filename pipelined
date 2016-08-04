@@ -137,11 +137,18 @@ class PipelineDaemon:
         guide_thread.start()
 
         self._process_queue = {}
+        self._preview_data = {}
         for cam in CAMERAS:
             self._process_queue[cam] = queue.Queue(maxsize=1)
             thread = threading.Thread(target=self.__process_frames, args=[cam])
             thread.daemon = True
             thread.start()
+
+            # Tuple of (frame, messages)
+            self._preview_data[cam] = queue.Queue()
+            preview_thread = threading.Thread(target=self.__process_previews, args=[cam])
+            preview_thread.daemon = True
+            preview_thread.start()
 
         self._wcs_enabled = False
         self._fwhm_enabled = False
@@ -242,6 +249,43 @@ class PipelineDaemon:
                 print('failed to update guiding with error: ' + str(e))
                 observatory.log.error('pipelined', 'Failed to calculate guide offset (' \
                                       + str(e) + ')')
+
+    def __process_previews(self, camera_id, unregister_on_error=True):
+        """Updates the ds9 preview windows with data from the main processing thread"""
+        preview_queue = self._preview_data[camera_id]
+        last_hdulist = None
+        while True:
+            try:
+                # Block until a preview is available
+                hdulist, xpa_messages = preview_queue.get()
+
+                # We only care about the last entry
+                try:
+                    while True:
+                        hdulist, xpa_messages = preview_queue.get(block=False)
+                except queue.Empty:
+                    pass
+
+                for address in self._ds9_preview_addresses[camera_id][:]:
+                    try:
+                        p = pyds9.DS9(address, start=False, wait=1)
+                        if hdulist is not None and hdulist != last_hdulist:
+                            p.set_pyfits(hdulist)
+                            last_hdulist = hdulist
+
+                        if xpa_messages is not None:
+                            for message in xpa_messages:
+                                if isinstance(message, tuple):
+                                    p.set(message[0], message[1])
+                                else:
+                                    p.set(message)
+                    except Exception as e:
+                        if unregister_on_error:
+                            self._ds9_preview_addresses[camera_id].remove(address)
+                            print('{}: unregistering preview {}: {}'.format(camera_id, address, e))
+            except Exception as e:
+                print('unexpected exception when processing ' + camera_id + ' preview')
+                print(e)
 
     def __add_telescope_header(self, frame):
         """Queries the telescope status and adds the appropriate header keys to the frame"""
@@ -531,28 +575,6 @@ class PipelineDaemon:
             print('failed to calculate intensity stats with error: ' + str(e))
             return []
 
-    def __update_previews(self, camera_id, hdulist=None, xpa_messages=None,
-                          unregister_on_error=True):
-        """Update registered preview clients with new data
-           if hdulist is non-None the frame will be updated
-           any xpa_messages will then be sent vertabim"""
-
-        for address in self._ds9_preview_addresses[camera_id][:]:
-            try:
-                p = pyds9.DS9(address, start=False, wait=1)
-                if hdulist is not None:
-                    p.set_pyfits(hdulist)
-                if xpa_messages is not None:
-                    for message in xpa_messages:
-                        if isinstance(message, tuple):
-                            p.set(message[0], message[1])
-                        else:
-                            p.set(message)
-            except Exception as e:
-                if unregister_on_error:
-                    self._ds9_preview_addresses[camera_id].remove(address)
-                    print('save thread: unregistering preview {}: {}'.format(address, e))
-
     def __generate_header_annotations(self, camera_id, frame, objects):
         """Returns the XPA commands to display the time and exposure on the live previews"""
         width = frame.header['NAXIS1']
@@ -648,11 +670,11 @@ class PipelineDaemon:
 
                     # Update previews before the relatively-slow WCS step
                     annotations = self.__generate_header_annotations(camera_id, frame, objects)
-                    self.__update_previews(camera_id, hdulist, annotations)
+                    self._preview_data[camera_id].put((hdulist, annotations))
 
                     if self._wcs_enabled:
                         wcs = self.__add_wcs_header(frame, camera_id, objects)
-                        self.__update_previews(camera_id, xpa_messages=wcs)
+                        self._preview_data[camera_id].put((hdulist, wcs))
                         steps.append('wcs')
 
                     if self._output_save_to_disk[camera_id]:

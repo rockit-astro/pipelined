@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-server
-Version:   1.11
+Version:   1.12
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline server for the Warwick one-metre telescope.
