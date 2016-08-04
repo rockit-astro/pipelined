@@ -194,14 +194,10 @@ class PipelineDaemon:
 
                     # RA becomes compressed away from the equator
                     # Calculate the correction scale factor
-                    dec = reference[0].header['TELDEC']
-                    parts = dec.split(':')
-
-                    # Sign doesn't matter, so discard immediately
-                    a = abs(float(parts[0]))
-                    b = float(parts[1])
-                    c = float(parts[2])
-                    self._guide_cos_dec = math.cos((a + b / 60 + c / 3600) * math.pi / 180)
+                    tel_daemon = observatory.daemons.onemetre_telescope
+                    with tel_daemon.connect(STATUS_QUERY_TIMEOUT) as teld:
+                        t = teld.report_status()
+                        self._guide_cos_dec = math.cos(t['dec'])
 
                     reference.close()
                 except Exception as e:
