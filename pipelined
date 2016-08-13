@@ -690,6 +690,23 @@ class PipelineDaemon:
             observatory.log.error('pipelined', 'Failed to generate dashboard data (' \
                                   + str(e) + ')')
 
+    def __notify_opsd(self, frame):
+        try:
+            header = {}
+            for card in frame.header.cards:
+                if card.is_blank or len(card.keyword) == 0 or card.keyword == 'COMMENT':
+                    continue
+
+                header[card.keyword] = card.value
+
+            with observatory.daemons.onemetre_operations.connect() as ops:
+                ops.notify_processed_frame(header)
+
+        except Exception as e:
+            print('failed to notify operations daemon of completed frame with error: ' + str(e))
+            observatory.log.error('pipelined', 'Failed to notify operations daemon of completed' \
+                                  ' frame (' + str(e) + ')')
+
     def __process_frames(self, camera_id):
         process_queue = self._process_queue[camera_id]
         while True:
@@ -755,6 +772,7 @@ class PipelineDaemon:
                         self.__update_dashboard(camera_id, frame)
                         steps.append('dashboard')
 
+                    self.__notify_opsd(frame)
                 process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
                 print('processed ' + loadpath + ' in ' + str(round(process_time, 2)) + 's (' \
                       + ', '.join(steps) + ')')
