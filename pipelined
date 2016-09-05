@@ -55,7 +55,7 @@ MAX_NOTIFY_WAIT = 10
 # Timeout for telescope / environment status queries
 STATUS_QUERY_TIMEOUT = 1
 
-PIXELSHIFT_PATH = '/home/saft/src/pixelshift/pixelshift'
+PIXELSHIFT_PATH = '/home/ops/src/pixelshift/pixelshift'
 
 GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
 
@@ -157,7 +157,7 @@ class PipelineDaemon:
         self._compression_enabled = False
 
         # Information for building the output filename
-        self._output_directory = pathlib.Path('/home/saft/OBS_DATA/')
+        self._output_directory = pathlib.Path('/home/ops/OBS_DATA/')
         self._output_frame_prefix = 'unknown'
 
         self._frame_object = ''
