@@ -98,6 +98,23 @@ ANNOTATION_LABEL_MARGIN = 30
 
 ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
+ENVIRONMENT_KEYS = [
+    ('vaisala_temperature', 'EXTTEMP', '[deg c] temperature outside dome'),
+    ('vaisala_relative_humidity', 'EXTHUMD', '[%] humidity outside dome'),
+    ('vaisala_pressure', 'PRESSURE', '[hPa] air pressure'),
+    ('vaisala_wind_speed', 'WINDSPD', '[m/s] wind speed outside dome'),
+    ('vaisala_median_wind_speed', 'MEDWIND', '[m/s] median wind speed (last 20 min)'),
+    ('roomalert_internal_temp', 'DOMETEMP', '[deg c] temperature inside dome'),
+    ('roomalert_internal_humidity', 'DOMEHUMD', '[%] humidity inside dome'),
+    ('roomalert_truss_temp', 'TRUSTEMP', '[deg c] temperature at top of telescope truss'),
+    ('superwasp_sky_temp', 'SKYTEMP', '[deg c] sky temperature'),
+    ('vaisala_dew_point_delta', 'DEWDELTA', '[deg c] temperature above dew point'),
+    ('tng_dust', 'TNGDUST', '[ug/m3] TNG Dust measurement'),
+    ('power_light', 'DOMELITE', 'dome light is powered'),
+]
+
+# TODO: Include environment daemon software versions, wind direction, TNG seeing
+
 # This should be kept in sync with the dictionary in pipeline
 class CommandStatus:
     """Numeric return codes"""
@@ -348,63 +365,16 @@ class PipelineDaemon:
         h.append(desc, end=True)
 
         try:
-            with observatory.daemons.onemetre_vaisala.connect(STATUS_QUERY_TIMEOUT) as vaisala:
-                v = vaisala.last_measurement()
-                if v is not None:
-                    h.append(fits.Card('VSWVER', v['software_version'],
-                                       'vaisala server software version'), end=True)
-                if v is not None and v['wind_speed_valid']:
-                    h.append(fits.Card('VWINDSPD', v['wind_speed'],
-                                       '[km/h] vaisala wind speed'), end=True)
-                if v is not None and v['wind_direction_valid']:
-                    h.append(fits.Card('VWINDDIR', v['wind_direction'],
-                                       '[deg] vaisala wind direction'), end=True)
-                if v is not None and v['temperature_valid']:
-                    h.append(fits.Card('VEXTTEMP', v['temperature'],
-                                       '[deg c] vaisala external temperature'), end=True)
-                if v is not None and v['relative_humidity_valid']:
-                    h.append(fits.Card('VEXTHUMD', v['relative_humidity'],
-                                       '[%] vaisala external humidity'), end=True)
-                if v is not None and v['pressure_valid']:
-                    h.append(fits.Card('VPRESSUR', v['pressure'],
-                                       '[hPa] vaisala air pressure'), end=True)
+            with observatory.daemons.onemetre_environment.connect(STATUS_QUERY_TIMEOUT) as envd:
+                data = envd.dashboard_status()
+                for (env, key, comment) in ENVIRONMENT_KEYS:
+                    valid = env + '_valid'
+                    if env in data and (valid not in data or data[valid]['latest']):
+                        h.append(fits.Card(key, data[env]['latest'], comment), end=True)
         except Exception as e:
-            print('failed to add vaisala headers with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to query vaisala metadata (' \
+            print('failed to add environment headers with error: ' + str(e))
+            observatory.log.error('pipelined', 'Failed to query environment metadata (' \
                                   + str(e) + ')')
-
-        try:
-            with observatory.daemons.onemetre_roomalert.connect(STATUS_QUERY_TIMEOUT) as roomalert:
-                r = roomalert.last_measurement()
-                if r is not None:
-                    h.append(fits.Card('RASWVER', r['software_version'],
-                                       'room alert server software version'), end=True)
-                    h.append(fits.Card('DOMETEMP', r['internal_temp'],
-                                       '[deg c] dome temperature'), end=True)
-                    h.append(fits.Card('DOMEHUMD', r['internal_humidity'],
-                                       '[%] dome humidity'), end=True)
-                    h.append(fits.Card('TRUSTEMP', r['truss_temp'],
-                                       '[deg c] truss temperature'), end=True)
-        except Exception as e:
-            print('failed to add roomalert headers with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to query roomalert metadata (' \
-                                  + str(e) + ')')
-
-        try:
-            with observatory.daemons.superwasp_log.connect(STATUS_QUERY_TIMEOUT) as superwasp:
-                s = superwasp.last_measurement()
-                if s is not None:
-                    h.append(fits.Card('SWSWVER', s['software_version'],
-                                       'superwasp monitor server software version'), end=True)
-                    h.append(fits.Card('SKYTEMP', s['sky_temp'],
-                                       '[deg c] sky temperature'), end=True)
-                    h.append(fits.Card('DEWPDELT', s['dew_point_delta'],
-                                       '[deg c] temperature above dew point'), end=True)
-        except Exception as e:
-            print('failed to add superwasp headers with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to query superwasp metadata (' \
-                                  + str(e) + ')')
-
         return h
 
     def __add_pipeline_header(self, camera_id, frame):
