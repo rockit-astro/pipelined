@@ -126,6 +126,7 @@ class CommandStatus:
     Failed = 1
     Blocked = 2
 
+    ReferenceFrameError = 31
     DirectoryNotWritable = 50
 
 def rescale_image_data(data, clip_low, clip_high):
@@ -200,11 +201,7 @@ class PipelineDaemon:
                 data = json.load(infile)
 
                 self._guide_camera_id = data['guide_camera_id']
-                self._guide_x_binning = data['guide_x_binning']
-                self._guide_y_binning = data['guide_y_binning']
-                self._guide_cos_dec = data['guide_cos_dec']
                 self._guide_background_tile_size = data['guide_background_tile_size']
-                self._guide_reference_frame = data['guide_reference_frame']
 
                 self._wcs_enabled = data['wcs_enabled']
                 self._fwhm_enabled = data['fwhm_enabled']
@@ -232,6 +229,13 @@ class PipelineDaemon:
             print('failed to load pipeline config with error: ')
             print(e)
 
+        try:
+            if self._guide_camera_id is not None:
+                self.__load_guide_reference(GUIDE_REFERENCE_FRAME_PATH)
+        except Exception as e:
+            print('Failed to load guide reference with error: ')
+            print(e)
+
     def __save_config(self):
         """Update the saved config cache on disk"""
         with open(CONFIG_PATH, 'w') as outfile:
@@ -253,11 +257,7 @@ class PipelineDaemon:
                 'dashboard_thumb_size': self._dashboard_thumb_size,
 
                 'guide_camera_id': self._guide_camera_id,
-                'guide_x_binning': self._guide_x_binning,
-                'guide_y_binning': self._guide_y_binning,
-                'guide_cos_dec': self._guide_cos_dec,
                 'guide_background_tile_size': self._guide_background_tile_size,
-                'guide_reference_frame': self._guide_reference_frame
             }
 
             for cam in CAMERAS:
@@ -268,6 +268,19 @@ class PipelineDaemon:
                 })
 
             json.dump(data, outfile)
+
+    def __load_guide_reference(self, path):
+        """Loads and initializes the autoguider reference frame"""
+        shutil.copy(path, GUIDE_REFERENCE_FRAME_PATH)
+        with fits.open(GUIDE_REFERENCE_FRAME_PATH) as reference:
+            self._guide_x_binning = reference[0].header['CCD-XBIN']
+            self._guide_y_binning = reference[0].header['CCD-YBIN']
+
+            # RA becomes compressed away from the equator
+            # Calculate the correction scale factor
+            self._guide_cos_dec = math.cos(reference[0].header['TELDECD'] * math.pi / 180)
+
+        self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -286,20 +299,8 @@ class PipelineDaemon:
                 print('taking', frame, 'as new guide reference')
                 observatory.log.info('pipelined', 'Initializing autoguider')
                 try:
-                    self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
-                    shutil.copy(frame, GUIDE_REFERENCE_FRAME_PATH)
-                    reference = fits.open(GUIDE_REFERENCE_FRAME_PATH)
-                    self._guide_x_binning = reference[0].header['CCD-XBIN']
-                    self._guide_y_binning = reference[0].header['CCD-YBIN']
-
-                    # RA becomes compressed away from the equator
-                    # Calculate the correction scale factor
-                    tel_daemon = observatory.daemons.onemetre_telescope
-                    with tel_daemon.connect(STATUS_QUERY_TIMEOUT) as teld:
-                        t = teld.report_status()
-                        self._guide_cos_dec = math.cos(t['dec'])
-
-                    reference.close()
+                    self.__load_guide_reference(frame)
+                    self.__save_config()
                 except Exception as e:
                     print('failed with error: ' + str(e))
                     observatory.log.error('pipelined', 'Failed to initialize autoguider (' \
@@ -794,15 +795,22 @@ class PipelineDaemon:
                                     + 's by pipeline')
 
     @Pyro4.expose
-    def set_guide_camera(self, camera_id, background_tile_size=0):
+    def set_guide_camera(self, camera_id, background_tile_size=0, reference_frame=None):
         """Sets the camera ID to use for guiding"""
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
+            if reference_frame is not None:
+                try:
+                    self.__load_guide_reference(reference_frame)
+                except Exception as e:
+                    print('Failed to load reference frame with error: ')
+                    print(e)
+                    return CommandStatus.ReferenceFrameError
+
             self._guide_camera_id = camera_id
             self._guide_background_tile_size = background_tile_size
-            self._guide_reference_frame = None
 
             if camera_id is not None:
                 observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
