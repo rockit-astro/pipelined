@@ -59,6 +59,9 @@ PIXELSHIFT_PATH = '/home/ops/src/pixelshift/pixelshift'
 
 GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
 
+# Configuration cache
+CONFIG_PATH = '/var/tmp/pipeline.json'
+
 # Matrix coefficients transforming pixel offsets to sky offsets.
 # These are just the [CD1_1, CD1_2, CD2_1, CD2_2] wcs parameters
 GUIDE_TRANSFORM_MATRICES = {
@@ -147,7 +150,6 @@ class PipelineDaemon:
         self._guide_cos_dec = 1
         self._guide_background_tile_size = 0
         self._guide_reference_frame = None
-        self._guide_last_guide_frame = None
 
         guide_thread = threading.Thread(target=self.__process_guide_frames)
         guide_thread.daemon = True
@@ -192,6 +194,80 @@ class PipelineDaemon:
         self._dashboard_min_threshold = 5
         self._dashboard_max_threshold = 95
         self._dashboard_thumb_size = 512
+
+        try:
+            with open(CONFIG_PATH, 'r') as infile:
+                data = json.load(infile)
+
+                self._guide_camera_id = data['guide_camera_id']
+                self._guide_x_binning = data['guide_x_binning']
+                self._guide_y_binning = data['guide_y_binning']
+                self._guide_cos_dec = data['guide_cos_dec']
+                self._guide_background_tile_size = data['guide_background_tile_size']
+                self._guide_reference_frame = data['guide_reference_frame']
+
+                self._wcs_enabled = data['wcs_enabled']
+                self._fwhm_enabled = data['fwhm_enabled']
+                self._intensity_stats_enabled = data['intensity_stats_enabled']
+                self._dashboard_enabled = data['dashboard_enabled']
+                self._compression_enabled = data['compression_enabled']
+
+                # Information for building the output filename
+                self._output_directory = pathlib.Path(data['output_directory'])
+                self._output_frame_prefix = data['output_frame_prefix']
+
+                self._frame_object = data['frame_object']
+                self._frame_type = data['frame_type']
+
+                for cam in CAMERAS:
+                    self._output_frame_number[cam] = data[cam+'_output_frame_number']
+                    self._output_save_to_disk[cam] = data[cam+'_output_save_to_disk']
+                    self._ds9_preview_addresses[cam] = data[cam+'_ds9_preview_addresses']
+
+                # Min and max percentage thresholds to use for the preview pngs
+                self._dashboard_min_threshold = data['dashboard_min_threshold']
+                self._dashboard_max_threshold = data['dashboard_max_threshold']
+                self._dashboard_thumb_size = data['dashboard_thumb_size']
+        except Exception as e:
+            print('failed to load pipeline config with error: ')
+            print(e)
+
+    def __save_config(self):
+        """Update the saved config cache on disk"""
+        with open(CONFIG_PATH, 'w') as outfile:
+            data = {
+                'wcs_enabled': self._wcs_enabled,
+                'fwhm_enabled': self._fwhm_enabled,
+                'intensity_stats_enabled': self._intensity_stats_enabled,
+                'dashboard_enabled': self._dashboard_enabled,
+                'compression_enabled': self._compression_enabled,
+
+                'output_directory': str(self._output_directory),
+                'output_frame_prefix': self._output_frame_prefix,
+
+                'frame_object': self._frame_object,
+                'frame_type': self._frame_type,
+
+                'dashboard_min_threshold': self._dashboard_min_threshold,
+                'dashboard_max_threshold': self._dashboard_max_threshold,
+                'dashboard_thumb_size': self._dashboard_thumb_size,
+
+                'guide_camera_id': self._guide_camera_id,
+                'guide_x_binning': self._guide_x_binning,
+                'guide_y_binning': self._guide_y_binning,
+                'guide_cos_dec': self._guide_cos_dec,
+                'guide_background_tile_size': self._guide_background_tile_size,
+                'guide_reference_frame': self._guide_reference_frame
+            }
+
+            for cam in CAMERAS:
+                data.update({
+                    cam+'_output_frame_number': self._output_frame_number[cam],
+                    cam+'_output_save_to_disk': self._output_save_to_disk[cam],
+                    cam+'_ds9_preview_addresses': self._ds9_preview_addresses[cam],
+                })
+
+            json.dump(data, outfile)
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -299,6 +375,7 @@ class PipelineDaemon:
                     except Exception as e:
                         if unregister_on_error:
                             self._ds9_preview_addresses[camera_id].remove(address)
+                            self.__save_config()
                             print('{}: unregistering preview {}: {}'.format(camera_id, address, e))
             except Exception as e:
                 print('unexpected exception when processing ' + camera_id + ' preview')
@@ -667,6 +744,7 @@ class PipelineDaemon:
                         observatory.log.info('pipelined', 'Saved frame ' + filename)
                         self._output_frame_number[camera_id] += 1
                         steps.append('compress' if self._compression_enabled else 'save')
+                        self.__save_config()
 
                     if self._dashboard_enabled:
                         self.__update_dashboard(camera_id, frame)
@@ -725,7 +803,6 @@ class PipelineDaemon:
             self._guide_camera_id = camera_id
             self._guide_background_tile_size = background_tile_size
             self._guide_reference_frame = None
-            self._guide_last_guide_frame = None
 
             if camera_id is not None:
                 observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
@@ -751,6 +828,7 @@ class PipelineDaemon:
                 return CommandStatus.DirectoryNotWritable
 
             observatory.log.info('pipelined', 'Frame archive directory set to ' + str(path))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -763,6 +841,7 @@ class PipelineDaemon:
             self._output_frame_prefix = prefix
 
             observatory.log.info('pipelined', 'Frame prefix set to ' + prefix)
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -775,6 +854,7 @@ class PipelineDaemon:
             self._output_save_to_disk[camera_id] = enabled
             observatory.log.info('pipelined', 'Frame archiving for ' + camera_id \
                                  + (' enabled' if enabled else ' disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -785,7 +865,7 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._ds9_preview_addresses[camera_id].append(address)
-
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -799,6 +879,7 @@ class PipelineDaemon:
 
             observatory.log.info('pipelined', 'Frame number for ' + camera_id + ' set to ' \
                                  + str(number))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -811,6 +892,7 @@ class PipelineDaemon:
             self._frame_object = object_name
 
             observatory.log.info('pipelined', 'Frame object set to ' + object_name)
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -823,8 +905,8 @@ class PipelineDaemon:
             self._frame_type = frame_type
 
             observatory.log.info('pipelined', 'Frame type set to ' + frame_type)
+            self.__save_config()
             return CommandStatus.Succeeded
-
 
     @Pyro4.expose
     def set_dashboard_min_threshold(self, percent):
@@ -832,6 +914,7 @@ class PipelineDaemon:
         self._dashboard_min_threshold = percent
         observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
                              + str(percent) + '%')
+        self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -840,6 +923,7 @@ class PipelineDaemon:
         self._dashboard_max_threshold = percent
         observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
                              + str(percent) + '%')
+        self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -848,6 +932,7 @@ class PipelineDaemon:
         self._dashboard_thumb_size = max_size
         observatory.log.info('pipelined', 'Dashboard preview thumbnail size set to ' \
                              + str(max_size) + ' px')
+        self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -860,6 +945,7 @@ class PipelineDaemon:
             self._wcs_enabled = enabled
             observatory.log.info('pipelined', 'WCS solution ' \
                                  + ('enabled' if enabled else 'disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -872,6 +958,7 @@ class PipelineDaemon:
             self._fwhm_enabled = enabled
             observatory.log.info('pipelined', 'FWHM calculation ' \
                                  + ('enabled' if enabled else 'disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -884,6 +971,7 @@ class PipelineDaemon:
             self._intensity_stats_enabled = enabled
             observatory.log.info('pipelined', 'Intensity statistics ' \
                                  + ('enabled' if enabled else 'disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -896,6 +984,7 @@ class PipelineDaemon:
             self._dashboard_enabled = enabled
             observatory.log.info('pipelined', 'Dashboard updates ' \
                                  + ('enabled' if enabled else 'disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -908,6 +997,7 @@ class PipelineDaemon:
             self._compression_enabled = enabled
             observatory.log.info('pipelined', 'Frame compression ' \
                                  + ('enabled' if enabled else 'disabled'))
+            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -924,7 +1014,6 @@ class PipelineDaemon:
             'guide_camera_id': self._guide_camera_id,
             'guide_background_tile_size': self._guide_background_tile_size,
             'guide_reference_frame': self._guide_reference_frame,
-            'guide_last_guide_frame': self._guide_last_guide_frame,
 
             'wcs_enabled': self._wcs_enabled,
             'fwhm_enabled': self._fwhm_enabled,
