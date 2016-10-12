@@ -276,9 +276,13 @@ class PipelineDaemon:
             self._guide_x_binning = reference[0].header['CCD-XBIN']
             self._guide_y_binning = reference[0].header['CCD-YBIN']
 
-            # RA becomes compressed away from the equator
-            # Calculate the correction scale factor
-            self._guide_cos_dec = math.cos(reference[0].header['TELDECD'] * math.pi / 180)
+            # Guide frames are processed in parallel to the regular processing
+            # so the telescope header keys may not exist
+            # Query the declination from the telescope directly, instead
+            tel_daemon = observatory.daemons.onemetre_telescope
+            with tel_daemon.connect(STATUS_QUERY_TIMEOUT) as teld:
+                t = teld.report_status()
+                self._guide_cos_dec = math.cos(t['dec'])
 
         self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
 
