@@ -43,8 +43,10 @@ STATUS_CODES = {
     1: 'error: command failed',
     2: 'error: another command is already running',
     50: 'error: directory doesn\'t exist or isn\'t writable',
+    51: 'error: failed to create night directory (already exists?)',
 
     -101: 'error: unable to communicate with pipeline daemon',
+    -201: 'warning: data partition has less than 15 GiB remaining',
 }
 
 # Mapping used for the 'type' command
@@ -55,6 +57,9 @@ TYPE_VALUES = {
     'science': 'SCIENCE',
     'junk': 'JUNK'
 }
+
+# Warn if less than 15GiB remains
+DISKSPACE_WARN_THRESHOLD = 15 * 2**30
 
 def run_command(command):
     """Prints the message associated with a status code and returns the code"""
@@ -276,6 +281,20 @@ def register_preview(args):
     with observatory.daemons.onemetre_pipeline.connect() as pipeline:
         return pipeline.register_preview(camera_id, address)
 
+def start_night():
+    """Creates a new night directory and resets archive configuration"""
+    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        ret = pipeline.start_night()
+        if ret != 0:
+            return ret
+
+    with observatory.daemons.onemetre_tcs_diskspace.connect() as diskspace:
+        latest = diskspace.last_measurement()
+        if latest['data_fs_available_bytes'] < DISKSPACE_WARN_THRESHOLD:
+            return -201
+
+    return 0
+
 def print_usage():
     """Prints the utility help"""
     print('usage: {} <command> [<args>]'.format(SCRIPT_NAME))
@@ -283,6 +302,7 @@ def print_usage():
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
     print('   preview      open a ds9 window to preview acquired frames')
+    print('   startnight   configures the pipeline for a new night')
     print('output frame commands')
     print('   archive      enable or disable frame archiving')
     print('   dir          set archive directory')
@@ -327,6 +347,8 @@ if __name__ == '__main__':
         run_command(lambda: dashboard(sys.argv[2:]))
     if sys.argv[1] == 'compression':
         run_command(lambda: set_compression(sys.argv[2:]))
+    if sys.argv[1] == 'startnight':
+        run_command(start_night)
     if sys.argv[1] == 'status':
         run_command(status)
 

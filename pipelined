@@ -55,6 +55,7 @@ MAX_NOTIFY_WAIT = 10
 # Timeout for telescope / environment status queries
 STATUS_QUERY_TIMEOUT = 1
 
+BASE_DATA_PATH = pathlib.Path('/home/ops/OBS_DATA/')
 PIXELSHIFT_PATH = '/home/ops/src/pixelshift/pixelshift'
 
 GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
@@ -128,6 +129,7 @@ class CommandStatus:
 
     ReferenceFrameError = 31
     DirectoryNotWritable = 50
+    NewDirectoryFailed = 51
 
 def rescale_image_data(data, clip_low, clip_high):
     """ Returns a normalised array where clip_low percent of the pixels are 0 and
@@ -177,7 +179,7 @@ class PipelineDaemon:
         self._compression_enabled = False
 
         # Information for building the output filename
-        self._output_directory = pathlib.Path('/home/ops/OBS_DATA/')
+        self._output_directory = BASE_DATA_PATH
         self._output_frame_prefix = 'unknown'
 
         self._frame_object = ''
@@ -1028,6 +1030,36 @@ class PipelineDaemon:
             observatory.log.info('pipelined', 'Frame compression ' \
                                  + ('enabled' if enabled else 'disabled'))
             self.__save_config()
+            return CommandStatus.Succeeded
+
+    @Pyro4.expose
+    def start_night(self):
+        """Creates a new data directory for the current night and resets archive configuration"""
+        with TryLock(self._command_lock) as success:
+            if not success:
+                return CommandStatus.Blocked
+
+            night = (datetime.datetime.utcnow() - datetime.timedelta(hours=12)).strftime('%Y%m%d')
+            path = BASE_DATA_PATH / night
+            try:
+                os.makedirs(str(path))
+                self._output_directory = path
+            except Exception as e:
+                print('failed to create night dir with exception:')
+                print(e)
+                return CommandStatus.NewDirectoryFailed
+
+            self._output_frame_prefix = 'unknown'
+            self._frame_object = ''
+            self._frame_type = 'JUNK'
+
+            for cam in CAMERAS:
+                self._output_frame_number[cam] = 0
+                self._output_save_to_disk[cam] = False
+            self._compression_enabled = False
+            self.__save_config()
+
+            observatory.log.info('pipelined', 'Started new night ' + night)
             return CommandStatus.Succeeded
 
     @Pyro4.expose
