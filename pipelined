@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.4
 #
 # This file is part of pipelined.
 #
@@ -23,13 +23,15 @@
 # pylint: disable=invalid-name
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
+# pylint: disable=too-many-lines
+# pylint: disable=too-many-nested-blocks
 
 import datetime
 import json
 import math
 import os
 import pathlib
-from PIL import Image, ImageOps
 import queue
 import re
 import shutil
@@ -41,10 +43,15 @@ import sep
 from astropy.io import fits
 import astropy.table
 import pyds9
+from PIL import Image, ImageOps
 import Pyro4
-import warwick.observatory as observatory
-import warwick.observatory.helpers as helpers
-from warwick.observatory import TryLock
+from warwick.observatory.common import (
+    daemons,
+    log,
+    IP,
+    helpers,
+    TryLock)
+from warwick.observatory.common.helpers import pyro_client_matches
 
 # Set automatically when generating RPM package
 SOFTWARE_VERSION = 'UNKNOWN'
@@ -63,6 +70,9 @@ GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
 # Configuration cache
 CONFIG_PATH = '/var/tmp/pipeline.json'
 
+CONTROL_IPS = [IP.OneMetreDome, IP.OneMetreTCS]
+NOTIFY_FRAME_IPS = [IP.OneMetreTCS]
+
 # Matrix coefficients transforming pixel offsets to sky offsets.
 # These are just the [CD1_1, CD1_2, CD2_1, CD2_2] wcs parameters
 GUIDE_TRANSFORM_MATRICES = {
@@ -73,8 +83,8 @@ GUIDE_TRANSFORM_MATRICES = {
 }
 
 CAMERA_URLS = {
-    'BLUE': observatory.daemons.onemetre_blue_camera,
-    'RED': observatory.daemons.onemetre_red_camera
+    'BLUE': daemons.onemetre_blue_camera,
+    'RED': daemons.onemetre_red_camera
 }
 
 CAMERAS = ['BLUE', 'RED']
@@ -103,18 +113,18 @@ ANNOTATION_LABEL_MARGIN = 30
 ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
 ENVIRONMENT_KEYS = [
-    ('vaisala_temperature', 'EXTTEMP', '[deg c] temperature outside dome'),
-    ('vaisala_relative_humidity', 'EXTHUMD', '[%] humidity outside dome'),
-    ('vaisala_pressure', 'PRESSURE', '[hPa] air pressure'),
-    ('vaisala_wind_speed', 'WINDSPD', '[m/s] wind speed outside dome'),
-    ('vaisala_median_wind_speed', 'MEDWIND', '[m/s] median wind speed (last 20 min)'),
-    ('roomalert_internal_temp', 'DOMETEMP', '[deg c] temperature inside dome'),
-    ('roomalert_internal_humidity', 'DOMEHUMD', '[%] humidity inside dome'),
-    ('roomalert_truss_temp', 'TRUSTEMP', '[deg c] temperature at top of telescope truss'),
-    ('superwasp_sky_temp', 'SKYTEMP', '[deg c] sky temperature'),
-    ('vaisala_dew_point_delta', 'DEWDELTA', '[deg c] temperature above dew point'),
-    ('tng_dust', 'TNGDUST', '[ug/m3] TNG Dust measurement'),
-    ('power_light', 'DOMELITE', 'dome light is powered'),
+    ('vaisala', 'temperature', 'EXTTEMP', '[deg c] temperature outside dome'),
+    ('vaisala', 'relative_humidity', 'EXTHUMD', '[%] humidity outside dome'),
+    ('vaisala', 'pressure', 'PRESSURE', '[hPa] air pressure'),
+    ('vaisala', 'wind_speed', 'WINDSPD', '[m/s] wind speed outside dome'),
+    ('vaisala', 'median_wind_speed', 'MEDWIND', '[m/s] median wind speed (last 20 min)'),
+    ('roomalert', 'internal_temp', 'DOMETEMP', '[deg c] temperature inside dome'),
+    ('roomalert', 'internal_humidity', 'DOMEHUMD', '[%] humidity inside dome'),
+    ('roomalert', 'truss_temp', 'TRUSTEMP', '[deg c] temperature at top of telescope truss'),
+    ('superwasp', 'sky_temp', 'SKYTEMP', '[deg c] sky temperature'),
+    ('vaisala', 'dew_point_delta', 'DEWDELTA', '[deg c] temperature above dew point'),
+    ('tng', 'dust', 'TNGDUST', '[ug/m3] TNG Dust measurement'),
+    ('power', 'light', 'DOMELITE', 'dome light is powered'),
 ]
 
 # TODO: Include environment daemon software versions, wind direction, TNG seeing
@@ -126,7 +136,7 @@ class CommandStatus:
     Succeeded = 0
     Failed = 1
     Blocked = 2
-
+    InvalidControlIP = 10
     ReferenceFrameError = 31
     DirectoryNotWritable = 50
     NewDirectoryFailed = 51
@@ -274,14 +284,15 @@ class PipelineDaemon:
         """Loads and initializes the autoguider reference frame"""
         shutil.copy(path, GUIDE_REFERENCE_FRAME_PATH)
         with fits.open(GUIDE_REFERENCE_FRAME_PATH) as reference:
+            # pylint: disable=no-member
             self._guide_x_binning = reference[0].header['CCD-XBIN']
             self._guide_y_binning = reference[0].header['CCD-YBIN']
+            # pylint: enable=no-member
 
             # Guide frames are processed in parallel to the regular processing
             # so the telescope header keys may not exist
             # Query the declination from the telescope directly, instead
-            tel_daemon = observatory.daemons.onemetre_telescope
-            with tel_daemon.connect(STATUS_QUERY_TIMEOUT) as teld:
+            with daemons.onemetre_telescope.connect(STATUS_QUERY_TIMEOUT) as teld:
                 t = teld.report_status()
                 self._guide_cos_dec = math.cos(t['dec'])
 
@@ -302,14 +313,13 @@ class PipelineDaemon:
             # New guide session: take a copy of this frame to use as the reference
             if self._guide_reference_frame is None:
                 print('taking', frame, 'as new guide reference')
-                observatory.log.info('pipelined', 'Initializing autoguider')
+                log.info('pipelined', 'Initializing autoguider')
                 try:
                     self.__load_guide_reference(frame)
                     self.__save_config()
                 except Exception as e:
                     print('failed with error: ' + str(e))
-                    observatory.log.error('pipelined', 'Failed to initialize autoguider (' \
-                                          + str(e) + ')')
+                    log.error('pipelined', 'Failed to initialize autoguider (' + str(e) + ')')
                 continue
 
             if self._guide_camera_id not in GUIDE_TRANSFORM_MATRICES:
@@ -342,12 +352,11 @@ class PipelineDaemon:
 
                 print('offset px: {} {}; arcsec: {} {}'.format(dx, dy, 3600 * dra, 3600 * ddec))
 
-                with observatory.daemons.onemetre_telescope.connect() as teld:
+                with daemons.onemetre_telescope.connect() as teld:
                     teld.offset_radec_guiding(guide_offset_ra, guide_offset_dec)
             except Exception as e:
                 print('failed to update guiding with error: ' + str(e))
-                observatory.log.error('pipelined', 'Failed to calculate guide offset (' \
-                                      + str(e) + ')')
+                log.error('pipelined', 'Failed to calculate guide offset (' + str(e) + ')')
 
     def __process_previews(self, unregister_on_error=True):
         """Updates the ds9 preview windows with data from the main processing thread"""
@@ -394,7 +403,7 @@ class PipelineDaemon:
         h.append(desc, end=True)
 
         try:
-            with observatory.daemons.onemetre_telescope.connect(STATUS_QUERY_TIMEOUT) as teld:
+            with daemons.onemetre_telescope.connect(STATUS_QUERY_TIMEOUT) as teld:
                 t = teld.report_status()
                 h.append(fits.Card('TELSWVER', t['software_version'],
                                    'tcs server software version'), end=True)
@@ -435,8 +444,7 @@ class PipelineDaemon:
                     h.append(fits.Card('SITEELEV', elevation, '[m] telescope elevation'), end=True)
         except Exception as e:
             print('failed to add telescope headers with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to query telescope metadata (' \
-                                  + str(e) + ')')
+            log.error('pipelined', 'Failed to query telescope metadata (' + str(e) + ')')
         return h
 
     def __add_environment_header(self, frame):
@@ -447,16 +455,20 @@ class PipelineDaemon:
         h.append(desc, end=True)
 
         try:
-            with observatory.daemons.onemetre_environment.connect(STATUS_QUERY_TIMEOUT) as envd:
-                data = envd.dashboard_status()
-                for (env, key, comment) in ENVIRONMENT_KEYS:
-                    valid = env + '_valid'
-                    if env in data and (valid not in data or data[valid]['latest']):
-                        h.append(fits.Card(key, data[env]['latest'], comment), end=True)
+            with daemons.onemetre_environment.connect(STATUS_QUERY_TIMEOUT) as environment:
+                data = environment.status()
+                for (source, sensor, key, comment) in ENVIRONMENT_KEYS:
+                    if source not in data or sensor not in data[source]['data']:
+                        continue
+
+                    valid = sensor + '_valid'
+                    if valid in data[source]['data'] and not data[source]['data'][valid]['latest']:
+                        continue
+                    h.append(fits.Card(key, data[source]['data'][sensor]['latest'], comment),
+                             end=True)
         except Exception as e:
             print('failed to add environment headers with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to query environment metadata (' \
-                                  + str(e) + ')')
+            log.error('pipelined', 'Failed to query environment metadata (' + str(e) + ')')
         return h
 
     def __add_pipeline_header(self, camera_id, frame):
@@ -649,7 +661,7 @@ class PipelineDaemon:
                 'FWHM: ' + str(frame.header['MEDFWHM']) + ' arcsec')
             annotations.append(('regions', fwhm_label))
 
-        if objects is not None and len(objects) > 0:
+        if objects:
             for o in objects:
                 cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
                 annotations.append(('regions', cr))
@@ -687,24 +699,23 @@ class PipelineDaemon:
                 json.dump(metadata, outfile)
         except Exception as e:
             print('failed to generate dashboard preview with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to generate dashboard data (' \
-                                  + str(e) + ')')
+            log.error('pipelined', 'Failed to generate dashboard data (' + str(e) + ')')
 
     def __notify_opsd(self, frame):
         try:
             header = {}
             for card in frame.header.cards:
-                if card.is_blank or len(card.keyword) == 0 or card.keyword == 'COMMENT':
+                if card.is_blank or not card.keyword or card.keyword == 'COMMENT':
                     continue
 
                 header[card.keyword] = card.value
 
-            with observatory.daemons.onemetre_operations.connect() as ops:
+            with daemons.onemetre_operations.connect() as ops:
                 ops.notify_processed_frame(header)
 
         except Exception as e:
             print('failed to notify operations daemon of completed frame with error: ' + str(e))
-            observatory.log.error('pipelined', 'Failed to notify operations daemon of completed' \
+            log.error('pipelined', 'Failed to notify operations daemon of completed' \
                                   ' frame (' + str(e) + ')')
 
     def __process_frames(self, camera_id):
@@ -759,11 +770,11 @@ class PipelineDaemon:
                         tmppath = str(self._output_directory / tmpname)
 
                         # Simulate an atomic write by writing to a temporary file then renaming
-                        frame.writeto(tmppath, clobber=True)
+                        frame.writeto(tmppath, overwrite=True)
                         shutil.move(tmppath, savepath)
 
                         print('Saved frame ' + filename)
-                        observatory.log.info('pipelined', 'Saved frame ' + filename)
+                        log.info('pipelined', 'Saved frame ' + filename)
                         self._output_frame_number[camera_id] += 1
                         steps.append('compress' if self._compression_enabled else 'save')
                         self.__save_config()
@@ -790,6 +801,8 @@ class PipelineDaemon:
     @Pyro4.expose
     def notify_frame(self, camera_id, path):
         """Called by the camera daemons to notify that a new frame has been saved to disk"""
+        if not pyro_client_matches(NOTIFY_FRAME_IPS):
+            return CommandStatus.InvalidControlIP
 
         # Guide offsets should be applied ASAP
         if self._guide_camera_id == camera_id:
@@ -813,12 +826,15 @@ class PipelineDaemon:
 
         if wait > 0.1:
             print('WARNING: ' + camera_id + ' camera blocked for ' + str(wait) + 's by pipeline')
-            observatory.log.warning('pipelined', camera_id + ' camera blocked for ' + str(wait) \
-                                    + 's by pipeline')
+            log.warning('pipelined', camera_id + ' camera blocked for ' + str(wait) + \
+                's by pipeline')
 
     @Pyro4.expose
     def set_guide_camera(self, camera_id, background_tile_size=0, reference_frame=None):
         """Sets the camera ID to use for guiding"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
@@ -835,15 +851,18 @@ class PipelineDaemon:
             self._guide_background_tile_size = background_tile_size
 
             if camera_id is not None:
-                observatory.log.info('pipelined', 'Configured autoguiding with ' + camera_id \
+                log.info('pipelined', 'Configured autoguiding with ' + camera_id \
                                      + ' camera and ' + str(background_tile_size) + ' px tiles')
             else:
-                observatory.log.info('pipelined', 'Disabled autoguiding')
+                log.info('pipelined', 'Disabled autoguiding')
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_archive_directory(self, directory):
         """Sets the output frame directory"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
@@ -857,32 +876,38 @@ class PipelineDaemon:
             except Exception:
                 return CommandStatus.DirectoryNotWritable
 
-            observatory.log.info('pipelined', 'Frame archive directory set to ' + str(path))
+            log.info('pipelined', 'Frame archive directory set to ' + str(path))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_output_frame_prefix(self, prefix):
         """Sets the output frame prefix"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._output_frame_prefix = prefix
 
-            observatory.log.info('pipelined', 'Frame prefix set to ' + prefix)
+            log.info('pipelined', 'Frame prefix set to ' + prefix)
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_archive(self, camera_id, enabled):
         """Enable or disable archiving to disk"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._output_save_to_disk[camera_id] = enabled
-            observatory.log.info('pipelined', 'Frame archiving for ' + camera_id \
+            log.info('pipelined', 'Frame archiving for ' + camera_id \
                                  + (' enabled' if enabled else ' disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
@@ -890,6 +915,9 @@ class PipelineDaemon:
     @Pyro4.expose
     def register_preview(self, camera_id, address):
         """Register a ds9 window for previews"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
@@ -901,138 +929,165 @@ class PipelineDaemon:
     @Pyro4.expose
     def set_output_frame_number(self, camera_id, number):
         """Sets the output frame number"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._output_frame_number[camera_id] = int(number)
 
-            observatory.log.info('pipelined', 'Frame number for ' + camera_id + ' set to ' \
-                                 + str(number))
+            log.info('pipelined', 'Frame number for ' + camera_id + ' set to ' + str(number))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_frame_object(self, object_name):
         """Sets the output frame number"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._frame_object = object_name
 
-            observatory.log.info('pipelined', 'Frame object set to ' + object_name)
+            log.info('pipelined', 'Frame object set to ' + object_name)
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_frame_type(self, frame_type):
         """Sets the output frame number"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._frame_type = frame_type
 
-            observatory.log.info('pipelined', 'Frame type set to ' + frame_type)
+            log.info('pipelined', 'Frame type set to ' + frame_type)
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_min_threshold(self, percent):
         """Sets the minimum contrast percentage for the web dashboard preview"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         self._dashboard_min_threshold = percent
-        observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
-                             + str(percent) + '%')
+        log.info('pipelined', 'Dashboard preview min threshold set to ' + str(percent) + '%')
         self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_max_threshold(self, percent):
         """Sets the maximum contrast percentage for the web dashboard preview"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         self._dashboard_max_threshold = percent
-        observatory.log.info('pipelined', 'Dashboard preview min threshold set to ' \
-                             + str(percent) + '%')
+        log.info('pipelined', 'Dashboard preview min threshold set to ' + str(percent) + '%')
         self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard_thumb_size(self, max_size):
         """Sets the maximum dimension of the web dashboard preview thumbnails"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         self._dashboard_thumb_size = max_size
-        observatory.log.info('pipelined', 'Dashboard preview thumbnail size set to ' \
-                             + str(max_size) + ' px')
+        log.info('pipelined', 'Dashboard preview thumbnail size set to ' + str(max_size) + ' px')
         self.__save_config()
         return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_wcs(self, enabled):
         """Enable or disable wcs solutions"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._wcs_enabled = enabled
-            observatory.log.info('pipelined', 'WCS solution ' \
-                                 + ('enabled' if enabled else 'disabled'))
+            log.info('pipelined', 'WCS solution ' + ('enabled' if enabled else 'disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_fwhm(self, enabled):
         """Enable or disable fwhm calculations"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._fwhm_enabled = enabled
-            observatory.log.info('pipelined', 'FWHM calculation ' \
-                                 + ('enabled' if enabled else 'disabled'))
+            log.info('pipelined', 'FWHM calculation ' + ('enabled' if enabled else 'disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_intensity_stats(self, enabled):
         """Enable or disable intensity statistics solutions"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._intensity_stats_enabled = enabled
-            observatory.log.info('pipelined', 'Intensity statistics ' \
-                                 + ('enabled' if enabled else 'disabled'))
+            log.info('pipelined', 'Intensity statistics ' + ('enabled' if enabled else 'disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard(self, enabled):
         """Enable or disable dashboard updates"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._dashboard_enabled = enabled
-            observatory.log.info('pipelined', 'Dashboard updates ' \
-                                 + ('enabled' if enabled else 'disabled'))
+            log.info('pipelined', 'Dashboard updates ' + ('enabled' if enabled else 'disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_compression(self, enabled):
         """Enable or disable gz compression"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
             self._compression_enabled = enabled
-            observatory.log.info('pipelined', 'Frame compression ' \
-                                 + ('enabled' if enabled else 'disabled'))
+            log.info('pipelined', 'Frame compression ' + ('enabled' if enabled else 'disabled'))
             self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def start_night(self):
         """Creates a new data directory for the current night and resets archive configuration"""
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
@@ -1057,7 +1112,7 @@ class PipelineDaemon:
             self._compression_enabled = False
             self.__save_config()
 
-            observatory.log.info('pipelined', 'Started new night ' + night)
+            log.info('pipelined', 'Started new night ' + night)
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -1094,4 +1149,4 @@ class PipelineDaemon:
         }
 
 if __name__ == '__main__':
-    observatory.daemons.onemetre_pipeline.launch(PipelineDaemon())
+    daemons.onemetre_pipeline.launch(PipelineDaemon())

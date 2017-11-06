@@ -6,8 +6,8 @@ RPMBUILD = rpmbuild --define "_topdir %(pwd)/build" \
 
 all:
 	mkdir -p build
-	${RPMBUILD} -ba pipeline-server.spec
-	${RPMBUILD} -ba pipeline-client.spec
+	${RPMBUILD} -ba onemetre-pipeline-server.spec
+	${RPMBUILD} -ba onemetre-pipeline-client.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 

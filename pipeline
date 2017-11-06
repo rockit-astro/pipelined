@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.4
 #
 # This file is part of pipelined.
 #
@@ -27,7 +27,7 @@ import subprocess
 import sys
 import pyds9
 import Pyro4
-import warwick.observatory as observatory
+from warwick.observatory.common import daemons
 
 SCRIPT_NAME = os.path.basename(sys.argv[0])
 sys.excepthook = Pyro4.util.excepthook
@@ -42,6 +42,7 @@ STATUS_CODES = {
     # General error codes
     1: 'error: command failed',
     2: 'error: another command is already running',
+    10: 'error: command not accepted from this IP',
     50: 'error: directory doesn\'t exist or isn\'t writable',
     51: 'error: failed to create night directory (already exists?)',
 
@@ -77,7 +78,7 @@ def run_command(command):
 
 def status():
     """Reports the current pipeline status"""
-    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+    with daemons.onemetre_pipeline.connect() as pipeline:
         data = pipeline.report_status()
 
     print('Autoguiding:')
@@ -128,11 +129,11 @@ def status():
 def dashboard(args):
     """Configure dashboard preview generation"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_dashboard(args[0] == 'enable')
 
     elif len(args) == 2 and (args[0] == 'min' or args[0] == 'max' or args[0] == 'thumb'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             value = int(args[1])
             if args[0] == 'min':
                 return pipeline.set_dashboard_min_threshold(value)
@@ -155,7 +156,7 @@ def set_archive_directory(args):
             path = str(Path(args[0]).resolve())
         except Exception:
             return 50
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_archive_directory(path)
     print('usage: {} dir <output frame directory>'.format(SCRIPT_NAME))
     return -1
@@ -163,7 +164,7 @@ def set_archive_directory(args):
 def set_prefix(args):
     """Set the output frame filename prefix"""
     if len(args) == 1:
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_output_frame_prefix(args[0])
     print('usage: {} prefix <output frame prefix>'.format(SCRIPT_NAME))
     return -1
@@ -171,7 +172,7 @@ def set_prefix(args):
 def set_object(args):
     """Set the OBJECT header keyword"""
     if len(args) == 1:
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_frame_object(args[0])
     print('usage: {} object <object name>'.format(SCRIPT_NAME))
     return -1
@@ -179,7 +180,7 @@ def set_object(args):
 def set_type(args):
     """Set the IMAGETYP header keyword"""
     if len(args) == 1 and args[0] in TYPE_VALUES:
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_frame_type(TYPE_VALUES[args[0]])
     print('usage: {} type (bias|dark|flat|science|junk)'.format(SCRIPT_NAME))
     return -1
@@ -188,7 +189,7 @@ def set_frame_number(args):
     """Set the output frame number"""
     if len(args) == 2 and (args[0] == 'blue' or args[0] == 'red'):
         camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_output_frame_number(camera_id, args[1])
     print('usage: {} frameno (blue|red) <output frame number>'.format(SCRIPT_NAME))
     return -1
@@ -198,7 +199,7 @@ def set_archive(args):
     if len(args) == 2 and (args[0] == 'blue' or args[0] == 'red') and \
             (args[1] == 'enable' or args[1] == 'disable'):
         camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_archive(camera_id, args[1] == 'enable')
 
     print('usage: {} save (blue|red) (enable|disable)'.format(SCRIPT_NAME))
@@ -207,7 +208,7 @@ def set_archive(args):
 def set_wcs(args):
     """Enable or disable wcs solutions for acquired frames"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_wcs(args[0] == 'enable')
 
     print('usage: {} wcs (enable|disable)'.format(SCRIPT_NAME))
@@ -216,7 +217,7 @@ def set_wcs(args):
 def set_fwhm(args):
     """Enable or disable FWHM calculation for acquired frames"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_fwhm(args[0] == 'enable')
 
     print('usage: {} fwhm (enable|disable)'.format(SCRIPT_NAME))
@@ -225,7 +226,7 @@ def set_fwhm(args):
 def set_intensity_stats(args):
     """Enable or disable intensity statistics for acquired frames"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_intensity_stats(args[0] == 'enable')
 
     print('usage: {} intstats (enable|disable)'.format(SCRIPT_NAME))
@@ -234,7 +235,7 @@ def set_intensity_stats(args):
 def set_compression(args):
     """Enable or disable frame gz compression"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
-        with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+        with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_compression(args[0] == 'enable')
 
     print('usage: {} compression (enable|disable)'.format(SCRIPT_NAME))
@@ -260,7 +261,7 @@ def register_preview(args):
         address = ds9.access().split(' ')[-1]
 
         # Register access for camd to update the preview
-        command = ['xpaset', '-p', name, '-acl', observatory.daemons.onemetre_pipeline.host, '+']
+        command = ['xpaset', '-p', name, '-acl', daemons.onemetre_pipeline.host, '+']
         subprocess.check_call(command, timeout=5)
 
         ds9.set('view filename no')
@@ -278,17 +279,17 @@ def register_preview(args):
         print('error: failed to open DS9 preview window')
         return -1
 
-    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+    with daemons.onemetre_pipeline.connect() as pipeline:
         return pipeline.register_preview(camera_id, address)
 
 def start_night():
     """Creates a new night directory and resets archive configuration"""
-    with observatory.daemons.onemetre_pipeline.connect() as pipeline:
+    with daemons.onemetre_pipeline.connect() as pipeline:
         ret = pipeline.start_night()
         if ret != 0:
             return ret
 
-    with observatory.daemons.onemetre_tcs_diskspace.connect() as diskspace:
+    with daemons.onemetre_tcs_diskspace.connect() as diskspace:
         latest = diskspace.last_measurement()
         if latest['data_fs_available_bytes'] < DISKSPACE_WARN_THRESHOLD:
             return -201
