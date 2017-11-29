@@ -458,14 +458,13 @@ class PipelineDaemon:
             with daemons.onemetre_environment.connect(STATUS_QUERY_TIMEOUT) as environment:
                 data = environment.status()
                 for (source, sensor, key, comment) in ENVIRONMENT_KEYS:
-                    if source not in data or sensor not in data[source]['data']:
+                    if source not in data or sensor not in data[source]:
                         continue
 
-                    valid = sensor + '_valid'
-                    if valid in data[source]['data'] and not data[source]['data'][valid]['latest']:
+                    if not data[source][sensor]['current']:
                         continue
-                    h.append(fits.Card(key, data[source]['data'][sensor]['latest'], comment),
-                             end=True)
+
+                    h.append(fits.Card(key, data[source][sensor]['latest'], comment), end=True)
         except Exception as e:
             print('failed to add environment headers with error: ' + str(e))
             log.error('pipelined', 'Failed to query environment metadata (' + str(e) + ')')
