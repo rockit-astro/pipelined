@@ -89,6 +89,7 @@ def status():
 
     print('Frame Archiving:')
     print('   Archive directory is ' + FMT_BOLD + data['archive_directory'] + FMT_CLEAR)
+    print('   Frame prefix is ' + FMT_BOLD + data['frame_prefix'] + FMT_CLEAR)
     print('   Frame type is ' + FMT_BOLD + data['frame_type'] + FMT_CLEAR)
     if data['frame_type'] == 'SCIENCE':
         print('   Frame object is ' + FMT_BOLD + data['frame_object'] + FMT_CLEAR)
@@ -96,11 +97,9 @@ def status():
         print('   Frame object not written (requires SCIENCE type)')
 
     blue = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['BLUE'] else FMT_RED + 'DISCARDED'
-    blue += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['BLUE'] + FMT_CLEAR + ')'
     print('   Blue camera frames are ' + FMT_BOLD + blue + FMT_CLEAR)
 
     red = FMT_GREEN + 'ARCHIVED' if data['archive_enabled']['RED'] else FMT_RED + 'DISCARDED'
-    red += FMT_CLEAR + ' (next: ' + FMT_BOLD + data['next_filename']['RED'] + FMT_CLEAR + ')'
     print('   Red camera frames are ' + FMT_BOLD + red + FMT_CLEAR)
 
     print('Pipeline flags:')
@@ -142,7 +141,7 @@ def dashboard(args):
             if args[0] == 'thumb':
                 return pipeline.set_dashboard_thumb_size(value)
 
-    if len(args) == 0:
+    if not args:
         print('usage: {} dashboard [enable|disable|min|max|thumb]'.format(SCRIPT_NAME))
     else:
         print('usage: {} dashboard [min|max|thumb] <value>'.format(SCRIPT_NAME))
@@ -183,15 +182,6 @@ def set_type(args):
         with daemons.onemetre_pipeline.connect() as pipeline:
             return pipeline.set_frame_type(TYPE_VALUES[args[0]])
     print('usage: {} type (bias|dark|flat|science|junk)'.format(SCRIPT_NAME))
-    return -1
-
-def set_frame_number(args):
-    """Set the output frame number"""
-    if len(args) == 2 and (args[0] == 'blue' or args[0] == 'red'):
-        camera_id = 'BLUE' if args[0] == 'blue' else 'RED'
-        with daemons.onemetre_pipeline.connect() as pipeline:
-            return pipeline.set_output_frame_number(camera_id, args[1])
-    print('usage: {} frameno (blue|red) <output frame number>'.format(SCRIPT_NAME))
     return -1
 
 def set_archive(args):
@@ -308,7 +298,6 @@ def print_usage():
     print('   archive      enable or disable frame archiving')
     print('   dir          set archive directory')
     print('   prefix       set archive frame prefix')
-    print('   frameno      set archive frame number')
     print('   object       set metadata object name')
     print('   type         set metadata frame type')
     print('reduction flags:')
@@ -330,8 +319,6 @@ if __name__ == '__main__':
         run_command(lambda: set_archive_directory(sys.argv[2:]))
     if sys.argv[1] == 'prefix':
         run_command(lambda: set_prefix(sys.argv[2:]))
-    if sys.argv[1] == 'frameno':
-        run_command(lambda: set_frame_number(sys.argv[2:]))
     if sys.argv[1] == 'object':
         run_command(lambda: set_object(sys.argv[2:]))
     if sys.argv[1] == 'type':
