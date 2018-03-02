@@ -1054,6 +1054,71 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
+    def configure(self, params):
+        """Set pipeline configuration to the requested state
+           params should be a dictionary with the following keys:
+              path: Path where images should be saved
+              prefix: Filename prefix for each image
+              type: Science/Calibration/Junk/etc
+              object: Object name to include for Science frames
+              archive: Dictionary of instrument arm to bool for which images to archive
+              wcs: Attempt to solve WCS coordinates (True/False)
+              intstats: Calculate basic intensity statistics (True/False)
+              fwhm: Calculate median FWHM from objects in the image (True/False)
+              compression: Save frames with gz compression (True/False)
+           Any properties not specified in params will be reset to its default
+        """
+        if not pyro_client_matches(CONTROL_IPS):
+            return CommandStatus.InvalidControlIP
+
+        with TryLock(self._command_lock) as success:
+            if not success:
+                return CommandStatus.Blocked
+
+            try:
+                path = pathlib.Path(params.get('path', BASE_DATA_PATH)).resolve()
+                testfile = tempfile.TemporaryFile(dir=str(path))
+                self._output_directory = path
+                testfile.close()
+            except Exception:
+                return CommandStatus.DirectoryNotWritable
+
+            log.info('pipelined', 'Frame archive directory set to ' + str(path))
+
+            self._output_frame_prefix = params.get('prefix', 'unknown')
+            log.info('pipelined', 'Frame prefix set to ' + self._output_frame_prefix)
+
+            self._frame_type = params.get('type', 'JUNK')
+            log.info('pipelined', 'Frame type set to ' + self._frame_type)
+
+            self._frame_object = params.get('object', '')
+            log.info('pipelined', 'Frame object set to ' + self._frame_object)
+
+            for k, v in params.get('archive', {c: False for c in CAMERAS}).items():
+                self._output_save_to_disk[k] = v
+                log.info('pipelined', 'Frame archiving for ' + k + \
+                    (' enabled' if v else ' disabled'))
+
+            self._wcs_enabled = params.get('wcs', False)
+            log.info('pipelined', 'WCS solution ' + \
+                ('enabled' if self._wcs_enabled else 'disabled'))
+
+            self._intensity_stats_enabled = params.get('intstats', False)
+            log.info('pipelined', 'Intensity statistics ' + \
+                ('enabled' if self._intensity_stats_enabled else 'disabled'))
+
+            self._fwhm_enabled = params.get('fwhm', False)
+            log.info('pipelined', 'FWHM calculation ' + \
+                ('enabled' if self._fwhm_enabled else 'disabled'))
+
+            self._compression_enabled = params.get('compression', False)
+            log.info('pipelined', 'Frame compression ' + \
+                ('enabled' if self._compression_enabled else 'disabled'))
+
+            self.__save_config()
+            return CommandStatus.Succeeded
+
+    @Pyro4.expose
     def start_night(self):
         """Creates a new data directory for the current night and resets archive configuration"""
         if not pyro_client_matches(CONTROL_IPS):
