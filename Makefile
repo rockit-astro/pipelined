@@ -8,6 +8,7 @@ all:
 	mkdir -p build
 	${RPMBUILD} -ba onemetre-pipeline-server.spec
 	${RPMBUILD} -ba onemetre-pipeline-client.spec
+	${RPMBUILD} -ba python34-warwick-w1m-pipeline.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 
