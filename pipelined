@@ -351,25 +351,25 @@ class PipelineDaemon:
 
     def __process_previews(self, unregister_on_error=True):
         """Updates the ds9 preview windows with data from the main processing thread"""
-        last_hdulist = None
+        last_frame = None
         while True:
             try:
                 # Block until a preview is available
-                camera_id, hdulist, xpa_messages = self._preview_data.get()
+                camera_id, frame, xpa_messages = self._preview_data.get()
 
                 # We only care about the last entry
                 try:
                     while True:
-                        camera_id, hdulist, xpa_messages = self._preview_data.get(block=False)
+                        camera_id, frame, xpa_messages = self._preview_data.get(block=False)
                 except queue.Empty:
                     pass
 
                 for address in self._ds9_preview_addresses[camera_id][:]:
                     try:
                         p = pyds9.DS9(address, start=False, wait=1)
-                        if hdulist is not None and hdulist != last_hdulist:
-                            p.set_pyfits(hdulist)
-                            last_hdulist = hdulist
+                        if frame is not None and frame != last_frame:
+                            p.set_pyfits(fits.HDUList(frame))
+                            last_frame = frame
 
                         if xpa_messages is not None:
                             for message in xpa_messages:
@@ -711,7 +711,9 @@ class PipelineDaemon:
             try:
                 start = datetime.datetime.utcnow()
                 with fits.open(loadpath) as hdulist:
-                    frame = hdulist[0]
+                    # Take a copy of the primary HDU so that it remains
+                    # available in memory after the file has been closed
+                    frame = fits.PrimaryHDU(hdulist[0].data, hdulist[0].header)
                     print('loaded frame ' + loadpath)
 
                     steps = ['headers']
@@ -742,11 +744,11 @@ class PipelineDaemon:
 
                     # Update previews before the relatively-slow WCS step
                     annotations = self.__generate_header_annotations(camera_id, frame, objects)
-                    self._preview_data.put((camera_id, hdulist, annotations))
+                    self._preview_data.put((camera_id, frame, annotations))
 
                     if self._wcs_enabled:
                         wcs = self.__add_wcs_header(frame, camera_id, objects)
-                        self._preview_data.put((camera_id, hdulist, wcs))
+                        self._preview_data.put((camera_id, frame, wcs))
                         steps.append('wcs')
 
                     if self._output_save_to_disk[camera_id]:
