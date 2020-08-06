@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-server
-Version:   2.3.0
+Version:   2.3.1
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline server for the Warwick one-metre telescope.
@@ -7,7 +7,7 @@ License:   GPL-3.0
 Group:     Unspecified
 BuildArch: noarch
 Requires:  onemetre-pixelshift, nfs-utils
-Requires:  python36, python36-Pyro4, python36-pyds9, python36-sep, python36-Pillow, python36-warwick-observatory-common
+Requires:  python3, python3-Pyro4, python3-pyds9, python3-sep, python3-pillow, python3-warwick-observatory-common
 Requires:  observatory-log-client, %{?systemd_requires}
 
 %description

@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-client
-Version:   2.3.0
+Version:   2.3.1
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Pipeline client for the Warwick one-metre telescope.
@@ -7,7 +7,7 @@ License:   GPL-3.0
 Group:     Unspecified
 BuildArch: noarch
 Requires:  ds9, xpa, xpa-libs
-Requires:  python36, python36-Pyro4, python36-pyds9, python36-warwick-observatory-common
+Requires:  python3, python3-Pyro4, python3-pyds9, python3-warwick-observatory-common
 
 %description
 Part of the observatory software for the Warwick one-meter telescope.

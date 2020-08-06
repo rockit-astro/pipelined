@@ -1,4 +1,4 @@
-Name:           python36-warwick-w1m-pipeline
+Name:           python3-warwick-w1m-pipeline
 Version:        1.1.0
 Release:        0
 License:        GPL3
