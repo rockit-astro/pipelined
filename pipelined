@@ -645,10 +645,10 @@ class PipelineDaemon:
                 'FWHM: ' + str(frame.header['MEDFWHM']) + ' arcsec')
             annotations.append(('regions', fwhm_label))
 
-        if objects:
-            for o in objects:
-                cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
-                annotations.append(('regions', cr))
+        for o in objects:
+            cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
+            annotations.append(('regions', cr))
+
         return annotations
 
     def __update_dashboard(self, camera_id, frame):
