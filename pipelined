@@ -112,11 +112,12 @@ ENVIRONMENT_KEYS = [
     ('vaisala', 'relative_humidity', 'EXTHUMD', '[%] humidity outside dome'),
     ('vaisala', 'pressure', 'PRESSURE', '[hPa] air pressure'),
     ('vaisala', 'wind_speed', 'WINDSPD', '[m/s] wind speed outside dome'),
+    ('vaisala', 'wind_gust', 'WINDGUST', '[m/s] wind gust speed outside dome'),
     ('vaisala', 'median_wind_speed', 'MEDWIND', '[m/s] median wind speed (last 20 min)'),
     ('roomalert', 'internal_temp', 'DOMETEMP', '[deg c] temperature inside dome'),
     ('roomalert', 'internal_humidity', 'DOMEHUMD', '[%] humidity inside dome'),
     ('roomalert', 'truss_temp', 'TRUSTEMP', '[deg c] temperature at top of telescope truss'),
-    ('superwasp', 'sky_temp', 'SKYTEMP', '[deg c] sky temperature'),
+    ('superwasp_aurora', 'clarity', 'SKYCLAR', '[deg c] sky clarity'),
     ('vaisala', 'dew_point_delta', 'DEWDELTA', '[deg c] temperature above dew point'),
     ('tng', 'dust', 'TNGDUST', '[ug/m3] TNG Dust measurement'),
     ('power', 'light', 'DOMELITE', 'dome light is powered'),
@@ -645,9 +646,10 @@ class PipelineDaemon:
                 'FWHM: ' + str(frame.header['MEDFWHM']) + ' arcsec')
             annotations.append(('regions', fwhm_label))
 
-        for o in objects:
-            cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
-            annotations.append(('regions', cr))
+        if objects is not None and len(objects) > 0:
+            for o in objects:
+                cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
+                annotations.append(('regions', cr))
 
         return annotations
 
