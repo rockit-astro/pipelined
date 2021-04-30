@@ -1,0 +1,264 @@
+{
+  "daemon": "localhost_test2",
+  "log_name": "pipelined@test",
+  "control_machines": ["LocalHost"],
+  "notify_frame_machines": ["LocalHost"],
+  "environment_daemon": "localhost_test4",
+  "environment_query_timeout": 1,
+  "telescope_query_timeout": 1,
+  "ops_daemon": "localhost_test5",
+  "data_root_path": "/home/ops",
+  "dashboard_output_path": "/home/ops",
+  "cameras": {
+    "TEST": {
+      "wcs_scale_high": 0.38,
+      "wcs_scale_low": 0.40,
+      "wcs_timeout": 4.0,
+      "wcs_search_ra_card": "TELRA",
+      "wcs_search_dec_card": "TELDEC",
+      "wcs_search_radius": 1.75,
+      "ccd_bin_card": "CCD-XBIN",
+      "image_region_card": "IMAG-RGN",
+      "platescale": 0.391,
+      "object_minpix": 16,
+      "preview_ds9_width": 512,
+      "preview_ds9_height": 572,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 30,
+      "dashboard_flip_vertical": true,
+      "dashboard_flip_horizontal": false,
+      "dashboard_min_threshold": 5,
+      "dashboard_max_threshold": 95,
+      "dashboard_thumb_size": 1024,
+      "dashboard_clip_size": 1024
+    }
+  },
+  "environment_cards": [
+    {
+      "key": "EXTTEMP",
+      "comment": "[deg c] temperature outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "EXTHUMD",
+      "comment": "[%] humidity outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "relative_humidity",
+      "type": "float1dp"
+    },
+    {
+      "key": "PRESSURE",
+      "comment": "[hPa] air pressure",
+      "sensor": "w1m_vaisala",
+      "parameter": "pressure",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDSPD",
+      "comment": "[m/s] wind speed outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDGUST",
+      "comment": "[m/s] wind gust speed outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "wind_gust",
+      "type": "float1dp"
+    },
+    {
+      "key": "MEDWIND",
+      "comment": "[m/s] median wind speed (last 20 min)",
+      "sensor": "w1m_vaisala",
+      "parameter": "median_wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "DOMETEMP",
+      "comment": "[deg c] temperature inside dome",
+      "sensor": "w1m_roomalert",
+      "parameter": "internal_temp",
+      "type": "float1dp"
+    },
+    {
+      "key": "DOMEHUMD",
+      "comment": "[%] humidity inside dome",
+      "sensor": "w1m_roomalert",
+      "parameter": "internal_humidity",
+      "type": "float1dp"
+    },
+    {
+      "key": "TRUSTEMP",
+      "comment": "[deg c] temperature at top of telescope truss",
+      "sensor": "w1m_roomalert",
+      "parameter": "truss_temp",
+      "type": "float1dp"
+    },
+    {
+      "key": "SKYCLAR",
+      "comment": "[deg c] sky clarity",
+      "sensor": "superwasp_aurora",
+      "parameter": "clarity",
+      "type": "float1dp"
+    },
+    {
+      "key": "DEWDELTA",
+      "comment": "[deg c] temperature above dew point",
+      "sensor": "w1m_vaisala",
+      "parameter": "dew_point_delta",
+      "type": "float1dp"
+    },
+    {
+      "key": "TNGDIMM",
+      "comment": "[arcsec] TNG DIMM seeing measurement",
+      "sensor": "tng",
+      "parameter": "seeing",
+      "type": "float2dp"
+    },
+    {
+      "key": "INGDIMM",
+      "comment": "[arcsec] ING RoboDIMM seeing measurement",
+      "sensor": "robodimm",
+      "parameter": "seeing",
+      "type": "float2dp"
+    },
+    {
+      "key": "TNGDUST",
+      "comment": "[ug/m3] TNG Dust measurement",
+      "sensor": "tng",
+      "parameter": "dust",
+      "type": "float1dp"
+    },
+    {
+      "key": "DOMELEDS",
+      "comment": "dome lights are powered",
+      "sensor": "w1m_power",
+      "parameter": "light",
+      "type": "bool"
+    }
+  ],
+  "telescope_cards": [
+    {
+      "key": "TELSWVER",
+      "comment": "tcs server software version",
+      "type": "string",
+      "daemon": "localhost_test3",
+      "parameter": "software_version"
+    },
+    {
+      "key": "TELSTATE",
+      "comment": "telescope status",
+      "type": "string",
+      "daemon": "localhost_test3",
+      "parameter": "state_label"
+    },
+    {
+      "key": "ROOFSTAT",
+      "comment": "roof status",
+      "type": "string",
+      "daemon": "localhost_test3",
+      "parameter": "roof_state_label"
+    },
+    {
+      "key": "TELRA",
+      "comment": "telescope nominal J2000 RA",
+      "type": "sexagesimalha",
+      "daemon": "localhost_test3",
+      "parameter": "ra"
+    },
+    {
+      "key": "TELDEC",
+      "comment": "telescope nominal J2000 Dec",
+      "type": "sexagesimaldeg",
+      "daemon": "localhost_test3",
+      "parameter": "dec"
+    },
+    {
+      "key": "TELHA",
+      "comment": "telescope nominal HA",
+      "type": "sexagesimalha",
+      "daemon": "localhost_test3",
+      "parameter": "ha"
+    },
+    {
+      "key": "TELRAD",
+      "comment": "[deg] telescope nominal J2000 RA",
+      "type": "float5dp",
+      "daemon": "localhost_test3",
+      "parameter": "ra"
+    },
+    {
+      "key": "TELDECD",
+      "comment": "[deg] telescope nominal J2000 Dec",
+      "type": "float5dp",
+      "daemon": "localhost_test3",
+      "parameter": "dec"
+    },
+    {
+      "key": "TELHAD",
+      "comment": "[deg] telescope nominal hour angle",
+      "type": "float5dp",
+      "daemon": "localhost_test3",
+      "parameter": "ha"
+    },
+    {
+      "key": "ALTITUDE",
+      "comment": "[deg] telescope nominal altitude",
+      "type": "float5dp",
+      "daemon": "localhost_test3",
+      "parameter": "alt"
+    },
+    {
+      "key": "AZIMUTH",
+      "comment": "[deg] telescope nominal azimuth",
+      "type": "float5dp",
+      "daemon": "localhost_test3",
+      "parameter": "az"
+    },
+    {
+      "key": "TELFOCUS",
+      "comment": "[um] nominal telescope focus",
+      "type": "float1dp",
+      "daemon": "localhost_test3",
+      "parameter": "az"
+    },
+    {
+      "key": "SITELAT",
+      "comment": "telescope latitude (north)",
+      "type": "sexagesimaldeg",
+      "daemon": "localhost_test3",
+      "parameter": "site_latitude"
+    },
+    {
+      "key": "SITELONG",
+      "comment": "telescope longitude (east)",
+      "type": "sexagesimaldeg",
+      "daemon": "localhost_test3",
+      "parameter": "site_longitude"
+    },
+    {
+      "key": "SITEELEV",
+      "comment": "[m] telescope elevation",
+      "type": "int",
+      "daemon": "localhost_test3",
+      "parameter": "site_elevation"
+    },
+    {
+      "key": "MOONSEP",
+      "comment": "[deg] nominal distance from moon",
+      "type": "float1dp",
+      "daemon": "localhost_test3",
+      "parameter": "moon_separation"
+    },
+    {
+      "key": "SUNSEP",
+      "comment": "[deg] nominal distance from sun",
+      "type": "float1dp",
+      "daemon": "localhost_test3",
+      "parameter": "sun_separation"
+    }
+  ]
+}

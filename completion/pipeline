@@ -5,24 +5,19 @@ _pipeline()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="status preview archive dir prefix frameno wcs fwhm intstats dashboard object type startnight"
+    opts="status preview archive dir prefix object type wcs hfd intstats dashboard"
     case "${prev}" in
-        preview|frameno|archive)
-            opts="blue red"
+        preview|archive)
+            opts=$(power list-switches)
             ;;
-        wcs|fwhm|intstats|compression)
+        wcs|hfd|intstats)
             opts="enable disable"
             ;;
         dashboard)
-            opts="enable disable min max thumb"
+            opts="enable disable"
             ;;
         type)
             opts="bias dark flat science junk"
-            ;;
-        blue|red)
-            if [ "${prevprev}" == "archive" ]; then
-                opts="enable disable"
-            fi
             ;;
         dir)
             # Fall back to readline completion for dirs (from the -o default)
@@ -31,6 +26,9 @@ _pipeline()
             return 0
             ;;
         *)
+            if [ "${prevprev}" == "archive" ] || [ "${prevprev}" == "preview" ]; then
+                opts="enable disable"
+            fi
             ;;
     esac
 

@@ -17,9 +17,9 @@
 
 from distutils.core import setup
 
-setup(name='warwick.w1m.pipeline',
+setup(name='warwick.observatory.pipeline',
       version='0',
-      packages = ['warwick.w1m.pipeline'],
+      packages = ['warwick.observatory.pipeline'],
       author='Paul Chote',
       description='Common code for the W1m pipeline daemon',
       license='GNU GPLv3',

@@ -1,16 +1,16 @@
-Name:      onemetre-pipeline-client
-Version:   2.3.1
+Name:      observatory-pipeline-client
+Version:   20210430
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
-Summary:   Pipeline client for the Warwick one-metre telescope.
+Summary:   Pipeline client for the Warwick La Palma telescopes.
 License:   GPL-3.0
 Group:     Unspecified
 BuildArch: noarch
 Requires:  ds9, xpa, xpa-libs
-Requires:  python3, python3-Pyro4, python3-pyds9, python3-warwick-observatory-common
+Requires:  python3, python3-Pyro4, python3-pyds9, python3-warwick-observatory-common, python3-warwick-observatory-pipeline
 
 %description
-Part of the observatory software for the Warwick one-meter telescope.
+Part of the observatory software for the Warwick La Palma telescopes.
 
 pipeline is a commandline utility for configuring the pipeline.
 

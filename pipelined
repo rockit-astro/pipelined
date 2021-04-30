@@ -17,155 +17,117 @@
 
 """Daemon for the Warwick one-metre telescope frame pipeline"""
 
-# pylint: disable=too-few-public-methods
 # pylint: disable=no-self-use
-# pylint: disable=broad-except
-# pylint: disable=invalid-name
 # pylint: disable=too-many-instance-attributes
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-statements
 # pylint: disable=too-many-lines
 # pylint: disable=too-many-nested-blocks
+# pylint: disable=too-many-branches
 
+import argparse
+import array
 import datetime
 import json
-import math
 import os
-import pathlib
 import queue
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
-import numpy
-import sep
+import traceback
+from astropy.coordinates import Angle
 from astropy.io import fits
 import astropy.table
-import pyds9
+import astropy.units as u
+import numpy as np
 from PIL import Image, ImageOps
+import pyds9
 import Pyro4
-from warwick.observatory.common import (
-    daemons,
-    log,
-    IP,
-    helpers,
-    TryLock)
+import sep
+from warwick.observatory.common import log, TryLock
 from warwick.observatory.common.helpers import pyro_client_matches
+from warwick.observatory.pipeline import CommandStatus, Config
 
 # Set automatically when generating RPM package
 SOFTWARE_VERSION = 'UNKNOWN'
 
-# Maximum time to block the camera waiting to hand a frame to the processing thread
-MAX_NOTIFY_WAIT = 10
-
-# Timeout for telescope / environment status queries
-STATUS_QUERY_TIMEOUT = 1
-
-BASE_DATA_PATH = pathlib.Path('/home/ops/OBS_DATA/')
-PIXELSHIFT_PATH = '/home/ops/src/pixelshift/pixelshift'
-
-GUIDE_REFERENCE_FRAME_PATH = '/var/tmp/guide_reference.fits'
-
-# Configuration cache
-CONFIG_PATH = '/var/tmp/pipeline.json'
-
-CONTROL_IPS = [IP.OneMetreDome, IP.OneMetreTCS]
-NOTIFY_FRAME_IPS = [IP.OneMetreTCS]
-
-# Matrix coefficients transforming pixel offsets to sky offsets.
-# These are just the [CD1_1, CD1_2, CD2_1, CD2_2] wcs parameters
-GUIDE_TRANSFORM_MATRICES = {
-    'BLUE': [0.000108685545277, -3.58470982799E-07,
-             -2.98097156944E-07, -0.000108607868069],
-    'RED': [-0.00010858955941, 1.83797853216E-07,
-            -2.66674559873E-07, -0.000108601351771]
-}
-
-CAMERAS = ['BLUE', 'RED']
-
-GUIDE_FUDGE_FACTOR = 0.5
-
-# Time limit (seconds) allowed to solve the WCS coordinates of a preview frame
-WCS_LIMIT = 4.0
-
-# Maximum field size (arcmin)
-# Note that this needs to account for the overscan too!
-WCS_SCALE_HIGH = 13.7
-
-# Maximum tcs ra/dec error (degrees)
-WCS_SEARCH_RADIUS = 1.75
-
-# Unbinned arcseconds per pixel
-OBJECT_PLATESCALE = 0.391
-
-# Minimum number of pixels for considering a source for FWHM estimation
-OBJECT_MINPIX = 16
-
-# Top/bottom margin (in px) to offset the annotation labels
-ANNOTATION_LABEL_MARGIN = 30
-
 ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
-ENVIRONMENT_KEYS = [
-    ('vaisala', 'temperature', 'EXTTEMP', '[deg c] temperature outside dome'),
-    ('vaisala', 'relative_humidity', 'EXTHUMD', '[%] humidity outside dome'),
-    ('vaisala', 'pressure', 'PRESSURE', '[hPa] air pressure'),
-    ('vaisala', 'wind_speed', 'WINDSPD', '[m/s] wind speed outside dome'),
-    ('vaisala', 'wind_gust', 'WINDGUST', '[m/s] wind gust speed outside dome'),
-    ('vaisala', 'median_wind_speed', 'MEDWIND', '[m/s] median wind speed (last 20 min)'),
-    ('roomalert', 'internal_temp', 'DOMETEMP', '[deg c] temperature inside dome'),
-    ('roomalert', 'internal_humidity', 'DOMEHUMD', '[%] humidity inside dome'),
-    ('roomalert', 'truss_temp', 'TRUSTEMP', '[deg c] temperature at top of telescope truss'),
-    ('superwasp_aurora', 'clarity', 'SKYCLAR', '[deg c] sky clarity'),
-    ('vaisala', 'dew_point_delta', 'DEWDELTA', '[deg c] temperature above dew point'),
-    ('tng', 'dust', 'TNGDUST', '[ug/m3] TNG Dust measurement'),
-    ('power', 'light', 'DOMELITE', 'dome light is powered'),
-]
-
-# TODO: Include environment daemon software versions, wind direction, TNG seeing
-
-# This should be kept in sync with the dictionary in pipeline
-class CommandStatus:
-    """Numeric return codes"""
-    # General error codes
-    Succeeded = 0
-    Failed = 1
-    Blocked = 2
-    InvalidControlIP = 10
-    ReferenceFrameError = 31
-    DirectoryNotWritable = 50
-    NewDirectoryFailed = 51
 
 def rescale_image_data(data, clip_low, clip_high):
     """ Returns a normalised array where clip_low percent of the pixels are 0 and
         clip_high percent of the pixels are 255
     """
-    high = numpy.percentile(data, clip_high)
-    low = numpy.percentile(data, clip_low)
+    high = np.percentile(data, clip_high)
+    low = np.percentile(data, clip_low)
     scale = 255. / (high - low)
-    data = numpy.clip(data, low, high)
+    data = np.clip(data, low, high)
     return scale * (data - low)
+
+
+def create_formatted_card(key, value, comment, format_type):
+    float_places = {
+        'float1dp': 1,
+        'float2dp': 2,
+        'float5dp': 5
+    }
+
+    try:
+        if format_type in float_places:
+            return create_float_card(key, value, comment, float_places[format_type])
+
+        if format_type == 'int':
+            value = int(value)
+        elif format_type == 'bool':
+            value = bool(value)
+        elif format_type == 'sexagesimalha':
+            value = Angle(value * u.deg).to(u.hourangle).to_string(sep=':', precision=2)
+        elif format_type == 'sexagesimaldeg':
+            value = Angle(value * u.deg).to_string(sep=':', precision=2)
+
+        return fits.Card(key, value, comment)
+    except Exception:
+        print('failed to create card ' + key + ' with error: ')
+        traceback.print_exc(file=sys.stdout)
+        return fits.Card('COMMENT', ' ' + key + ' not available', '')
+
+
+def create_float_card(key, value, comment, places):
+    """Create a fits.Card instance with a float value
+       rounded to a specified number of significant figures
+    """
+    fmt = '{:8s}= {:.0' + str(places) + 'f}'
+    card = fits.Card.fromstring(fmt.format(key, value))
+    card.comment = comment
+    return card
+
+
+def header_to_dict(header):
+    ret = {}
+    for card in header.cards:
+        if card.is_blank or not card.keyword or card.keyword == 'COMMENT':
+            continue
+
+        ret[card.keyword] = card.value
+    return ret
+
 
 class PipelineDaemon:
     """Daemon interface for data pipeline"""
-    def __init__(self):
+    def __init__(self, config):
+        self._config = config
         self._command_lock = threading.Lock()
         self._guide_condition = threading.Condition()
-        self._guide_camera_id = None
         self._guide_latest_frame = None
-        self._guide_x_binning = 1
-        self._guide_y_binning = 1
-        self._guide_cos_dec = 1
-        self._guide_background_tile_size = 0
-        self._guide_reference_frame = None
+        self._guide_camera_id = None
 
         guide_thread = threading.Thread(target=self.__process_guide_frames)
         guide_thread.daemon = True
         guide_thread.start()
 
         self._process_queue = {}
-        for cam in CAMERAS:
+        for cam in config.cameras:
             self._process_queue[cam] = queue.Queue(maxsize=1)
             thread = threading.Thread(target=self.__process_frames, args=[cam])
             thread.daemon = True
@@ -178,13 +140,12 @@ class PipelineDaemon:
         preview_thread.start()
 
         self._wcs_enabled = False
-        self._fwhm_enabled = False
+        self._hfd_enabled = False
         self._intensity_stats_enabled = False
         self._dashboard_enabled = True
-        self._compression_enabled = False
 
         # Information for building the output filename
-        self._output_directory = BASE_DATA_PATH
+        self._output_directory = config.data_root_path
         self._output_frame_prefix = 'unknown'
 
         self._frame_object = ''
@@ -192,179 +153,89 @@ class PipelineDaemon:
 
         self._output_save_to_disk = {}
         self._ds9_preview_addresses = {}
-        for cam in CAMERAS:
+        for cam in config.cameras:
             self._output_save_to_disk[cam] = False
             self._ds9_preview_addresses[cam] = []
-
-        # Min and max percentage thresholds to use for the preview pngs
-        self._dashboard_min_threshold = 5
-        self._dashboard_max_threshold = 95
-        self._dashboard_thumb_size = 512
-
-        try:
-            with open(CONFIG_PATH, 'r') as infile:
-                data = json.load(infile)
-
-                self._guide_camera_id = data['guide_camera_id']
-                self._guide_background_tile_size = data['guide_background_tile_size']
-
-                self._wcs_enabled = data['wcs_enabled']
-                self._fwhm_enabled = data['fwhm_enabled']
-                self._intensity_stats_enabled = data['intensity_stats_enabled']
-                self._dashboard_enabled = data['dashboard_enabled']
-                self._compression_enabled = data['compression_enabled']
-
-                # Information for building the output filename
-                self._output_directory = pathlib.Path(data['output_directory'])
-                self._output_frame_prefix = data['output_frame_prefix']
-
-                self._frame_object = data['frame_object']
-                self._frame_type = data['frame_type']
-
-                for cam in CAMERAS:
-                    self._output_save_to_disk[cam] = data[cam+'_output_save_to_disk']
-                    self._ds9_preview_addresses[cam] = data[cam+'_ds9_preview_addresses']
-
-                # Min and max percentage thresholds to use for the preview pngs
-                self._dashboard_min_threshold = data['dashboard_min_threshold']
-                self._dashboard_max_threshold = data['dashboard_max_threshold']
-                self._dashboard_thumb_size = data['dashboard_thumb_size']
-        except Exception as e:
-            print('failed to load pipeline config with error: ')
-            print(e)
-
-        try:
-            if self._guide_camera_id is not None:
-                self.__load_guide_reference(GUIDE_REFERENCE_FRAME_PATH)
-        except Exception as e:
-            print('Failed to load guide reference with error: ')
-            print(e)
-
-    def __save_config(self):
-        """Update the saved config cache on disk"""
-        with open(CONFIG_PATH, 'w') as outfile:
-            data = {
-                'wcs_enabled': self._wcs_enabled,
-                'fwhm_enabled': self._fwhm_enabled,
-                'intensity_stats_enabled': self._intensity_stats_enabled,
-                'dashboard_enabled': self._dashboard_enabled,
-                'compression_enabled': self._compression_enabled,
-
-                'output_directory': str(self._output_directory),
-                'output_frame_prefix': self._output_frame_prefix,
-
-                'frame_object': self._frame_object,
-                'frame_type': self._frame_type,
-
-                'dashboard_min_threshold': self._dashboard_min_threshold,
-                'dashboard_max_threshold': self._dashboard_max_threshold,
-                'dashboard_thumb_size': self._dashboard_thumb_size,
-
-                'guide_camera_id': self._guide_camera_id,
-                'guide_background_tile_size': self._guide_background_tile_size,
-            }
-
-            for cam in CAMERAS:
-                data.update({
-                    cam+'_output_save_to_disk': self._output_save_to_disk[cam],
-                    cam+'_ds9_preview_addresses': self._ds9_preview_addresses[cam],
-                })
-
-            json.dump(data, outfile)
-
-    def __load_guide_reference(self, path):
-        """Loads and initializes the autoguider reference frame"""
-        shutil.copy(path, GUIDE_REFERENCE_FRAME_PATH)
-        with fits.open(GUIDE_REFERENCE_FRAME_PATH) as reference:
-            # pylint: disable=no-member
-            self._guide_x_binning = reference[0].header['CCD-XBIN']
-            self._guide_y_binning = reference[0].header['CCD-YBIN']
-            # pylint: enable=no-member
-
-            # Guide frames are processed in parallel to the regular processing
-            # so the telescope header keys may not exist
-            # Query the declination from the telescope directly, instead
-            with daemons.onemetre_telescope.connect(STATUS_QUERY_TIMEOUT) as teld:
-                t = teld.report_status()
-                self._guide_cos_dec = math.cos(t['dec'])
-
-        self._guide_reference_frame = GUIDE_REFERENCE_FRAME_PATH
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
         while True:
             # Block until a frame is available for processing
-            frame = None
             with self._guide_condition:
                 while self._guide_latest_frame is None:
                     self._guide_condition.wait()
 
-                frame = self._guide_latest_frame
+                frame_path = self._guide_latest_frame
+                config = self._config.cameras[self._guide_camera_id]
                 self._guide_latest_frame = None
 
-            # New guide session: take a copy of this frame to use as the reference
-            if self._guide_reference_frame is None:
-                print('taking', frame, 'as new guide reference')
-                log.info('pipelined', 'Initializing autoguider')
-                try:
-                    self.__load_guide_reference(frame)
-                    self.__save_config()
-                except Exception as e:
-                    print('failed with error: ' + str(e))
-                    log.error('pipelined', 'Failed to initialize autoguider (' + str(e) + ')')
-                continue
+            # Background-subtract and collapse into x/y profiles
+            with fits.open(frame_path) as frame:
+                frame_data = frame[0].data
+                if config['image_region_card']:
+                    image_region = frame[0].header[config['image_region_card']]
+                    r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', image_region).groups()
+                    frame_data = frame_data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
 
-            if self._guide_camera_id not in GUIDE_TRANSFORM_MATRICES:
-                print('no transform matrix for camera ' + self._guide_camera_id)
-                continue
+                frame_data = frame_data.astype(float)
+                background = sep.Background(frame_data)
+                background.subfrom(frame_data)
 
+                # Pyro doesn't support numpy arrays, so convert to a built-in type
+                profile_x = array.array('f', np.mean(frame_data, axis=0))
+                profile_y = array.array('f', np.mean(frame_data, axis=1))
+
+            # Notify opsd
             try:
-                # TODO: use Donuts
-                output = subprocess.check_output(
-                    [PIXELSHIFT_PATH, frame, self._guide_reference_frame,
-                     str(self._guide_background_tile_size)], universal_newlines=True, timeout=5)
-
-                t = GUIDE_TRANSFORM_MATRICES[self._guide_camera_id]
-                coords = output.split(' ')
-
-                # Measured offset in px
-                dx = float(coords[0])
-                dy = float(coords[1])
-
-                # First-order approximated offset in ra, dec (degrees)
-                dra = (t[0] * dx + t[1] * dy) * self._guide_x_binning / self._guide_cos_dec
-                ddec = (t[2] * dx + t[3] * dy) * self._guide_y_binning
-
-                # Calculate actual telescope offset by running offsets through PID loop
-                # TODO: This currently only accounts for proportional offsets (no history)
-                guide_offset_ra = GUIDE_FUDGE_FACTOR * dra * math.pi / 180
-                guide_offset_dec = GUIDE_FUDGE_FACTOR * ddec * math.pi / 180
-
-                # TODO: Check for and drop anomalously large offsets
-
-                print('offset px: {} {}; arcsec: {} {}'.format(dx, dy, 3600 * dra, 3600 * ddec))
-
-                with daemons.onemetre_telescope.connect() as teld:
-                    teld.offset_radec_guiding(guide_offset_ra, guide_offset_dec)
+                with self._config.ops_daemon.connect() as ops:
+                    ops.notify_guide_profiles(header_to_dict(frame[0].header), profile_x, profile_y)
             except Exception as e:
-                print('failed to update guiding with error: ' + str(e))
-                log.error('pipelined', 'Failed to calculate guide offset (' + str(e) + ')')
+                log.error(self._config.log_name,
+                          'Failed to notify operations daemon of guide profiles (' + str(e) + ')')
+
+    def __set_archive_directory(self, path):
+        """Attempts to set the output data directory
+           If path is 'default' a YYYYMMDD night directory will be created in the BASE_DATA_PATH
+           otherwise, the given path will be checked to ensure it is writable
+           Returns a CommandStatus indicating the result
+        """
+        try:
+            if path == 'default':
+                # Default to a night directory in the base data dir
+                # Directory will be created if required
+                night = (datetime.datetime.utcnow() - datetime.timedelta(hours=12))
+                path = os.path.join(self._config.data_root_path, night.strftime('%Y%m%d'))
+                try:
+                    os.makedirs(path, exist_ok=True)
+                except FileExistsError:
+                    pass
+                except Exception:
+                    print('failed to create night dir with exception:')
+                    traceback.print_exc(file=sys.stdout)
+                    return CommandStatus.NewDirectoryFailed
+
+            # Throws on error
+            with tempfile.TemporaryFile(dir=path):
+                self._output_directory = path
+                return CommandStatus.Succeeded
+        except Exception:
+            return CommandStatus.DirectoryNotWritable
 
     def __process_previews(self, unregister_on_error=True):
         """Updates the ds9 preview windows with data from the main processing thread"""
         last_frame = None
         while True:
+            # Block until a preview is available
+            camera_id, frame, xpa_messages = self._preview_data.get()
+
+            # We only care about the last entry
             try:
-                # Block until a preview is available
-                camera_id, frame, xpa_messages = self._preview_data.get()
+                while True:
+                    camera_id, frame, xpa_messages = self._preview_data.get(block=False)
+            except queue.Empty:
+                pass
 
-                # We only care about the last entry
-                try:
-                    while True:
-                        camera_id, frame, xpa_messages = self._preview_data.get(block=False)
-                except queue.Empty:
-                    pass
-
+            try:
                 for address in self._ds9_preview_addresses[camera_id][:]:
                     try:
                         p = pyds9.DS9(address, start=False, wait=1)
@@ -381,86 +252,71 @@ class PipelineDaemon:
                     except Exception as e:
                         if unregister_on_error:
                             self._ds9_preview_addresses[camera_id].remove(address)
-                            self.__save_config()
                             print('{}: unregistering preview {}: {}'.format(camera_id, address, e))
-            except Exception as e:
+            except Exception:
                 print('unexpected exception when processing ' + camera_id + ' preview')
-                print(e)
+                traceback.print_exc(file=sys.stdout)
+
+    def __move_bscale_bzero(self, frame):
+        """Moves the BSCALE and BZERO header keys to the start of the header
+           to be grouped with the other image keywords"""
+        frame.header.set('BSCALE', frame.header['BSCALE'], after='NAXIS2')
+        frame.header.set('BZERO', frame.header['BZERO'], after='BSCALE')
 
     def __add_telescope_header(self, frame):
         """Queries the telescope status and adds the appropriate header keys to the frame"""
-        h = frame.header
         desc = fits.Card('COMMENT', ' ---          TELESCOPE INFORMATION          --- ')
-        h.append(fits.Card(None, None), end=True)
-        h.append(desc, end=True)
+        frame.header.append(fits.Card(None, None), end=True)
+        frame.header.append(desc, end=True)
 
-        try:
-            with daemons.onemetre_telescope.connect(STATUS_QUERY_TIMEOUT) as teld:
-                t = teld.report_status()
-                h.append(fits.Card('TELSWVER', t['software_version'],
-                                   'tcs server software version'), end=True)
-                h.append(fits.Card('TELSTATE', t['state_label'], 'telescope status'), end=True)
-                if t['state'] != 0:
-                    harad = t['lst'] - t['ra']
-                    while harad > math.pi:
-                        harad -= 2*math.pi
-                    while harad < -math.pi:
-                        harad += 2*math.pi
+        data = {}
+        # Query data from daemons
+        for config in self._config.telescope_cards:
+            if config['daemon'] in data:
+                continue
 
-                    ra = helpers.sexagesimal(t['ra'] * 12 / math.pi)
-                    h.append(fits.Card('TELRA', ra, 'telescope nominal J2000 RA'), end=True)
-                    dec = helpers.sexagesimal(math.degrees(t['dec']))
-                    h.append(fits.Card('TELDEC', dec, 'telescope nominal J2000 Dec'), end=True)
-                    ha = helpers.sexagesimal(harad * 12 / math.pi)
-                    h.append(fits.Card('TELHA', ha, 'telescope nominal HA'), end=True)
-                    rad = round(math.degrees(t['ra']), 3)
-                    h.append(fits.Card('TELRAD', rad, '[deg] telescope nominal J2000 RA'), end=True)
-                    decd = round(math.degrees(t['dec']), 3)
-                    h.append(fits.Card('TELDECD', decd, '[deg] telescope nominal J2000 Dec'),
-                             end=True)
-                    had = round(math.degrees(harad), 3)
-                    h.append(fits.Card('TELHAD', had, '[deg] telescope nominal HA'), end=True)
-                    altd = round(math.degrees(t['alt']), 3)
-                    h.append(fits.Card('ALTITUDE', altd, '[deg] telescope altitude'), end=True)
-                    azd = round(math.degrees(t['az']), 3)
-                    h.append(fits.Card('AZIMUTH', azd, '[deg] telescope azimuth'), end=True)
-                    h.append(fits.Card('TELFOCUS', t['telescope_focus_um'],
-                                       '[um] telescope nominal focus'), end=True)
+            try:
+                with config['daemon'].connect(self._config.telescope_query_timeout) as daemon:
+                    data[config['daemon']] = daemon.report_status()
+            except Exception as e:
+                print('failed to add telescope headers with error: ')
+                traceback.print_exc(file=sys.stdout)
+                log.error(self._config.log_name, 'Failed to query telescope metadata (' + str(e) + ')')
+                data[config['daemon']] = {'data': {}}
 
-                if 'site_latitude' in t:
-                    lat = helpers.sexagesimal(math.degrees(t['site_latitude']))
-                    h.append(fits.Card('SITELAT', lat, 'telescope latitude (north)'), end=True)
-                    lon = helpers.sexagesimal(math.degrees(t['site_longitude']))
-                    h.append(fits.Card('SITELONG', lon, 'telescope longitude (east)'), end=True)
-                    elevation = round(t['site_elevation'], 1)
-                    h.append(fits.Card('SITEELEV', elevation, '[m] telescope elevation'), end=True)
-        except Exception as e:
-            print('failed to add telescope headers with error: ' + str(e))
-            log.error('pipelined', 'Failed to query telescope metadata (' + str(e) + ')')
-        return h
+        # Build cards
+        for config in self._config.telescope_cards:
+            value = data.get(config['daemon'], {}).get(config['parameter'], None)
+            if value is not None:
+                frame.header.append(create_formatted_card(config['key'], value, config['comment'], config['type']),
+                                    end=True)
+            else:
+                frame.header.append(fits.Card('COMMENT', ' ' + config['key'] + ' not available', ''), end=True)
 
     def __add_environment_header(self, frame):
         """Queries the environment status and adds the appropriate header keys to the frame"""
-        h = frame.header
         desc = fits.Card('COMMENT', ' ---         ENVIRONMENT INFORMATION         --- ')
-        h.append(fits.Card(None, None), end=True)
-        h.append(desc, end=True)
+        frame.header.append(fits.Card(None, None), end=True)
+        frame.header.append(desc, end=True)
 
         try:
-            with daemons.onemetre_environment.connect(STATUS_QUERY_TIMEOUT) as environment:
+            with self._config.environment_daemon.connect(self._config.environment_query_timeout) as environment:
                 data = environment.status()
-                for (source, sensor, key, comment) in ENVIRONMENT_KEYS:
-                    if source not in data or sensor not in data[source]:
-                        continue
-
-                    if not data[source][sensor]['current']:
-                        continue
-
-                    h.append(fits.Card(key, data[source][sensor]['latest'], comment), end=True)
         except Exception as e:
-            print('failed to add environment headers with error: ' + str(e))
-            log.error('pipelined', 'Failed to query environment metadata (' + str(e) + ')')
-        return h
+            data = {}
+            print('failed to query environment headers with error: ')
+            traceback.print_exc(file=sys.stdout)
+            log.error(self._config.log_name, 'Failed to query environment metadata (' + str(e) + ')')
+
+        for config in self._config.environment_cards:
+            sensor_data = data.get(config['sensor'], {}).get('parameters', {}).get(config['parameter'], {})
+            if sensor_data and sensor_data.get('current', False):
+                frame.header.append(create_formatted_card(config['key'], sensor_data['latest'],
+                                                          config['comment'], config['type']), end=True)
+            else:
+                frame.header.append(fits.Card('COMMENT', ' ' + config['key'] + ' not available', ''), end=True)
+
+        return frame.header
 
     def __add_pipeline_header(self, camera_id, frame, filename):
         """Adds pipeline configuration to the frame header"""
@@ -473,16 +329,21 @@ class PipelineDaemon:
                                           'data pipeline software version'), end=True)
             frame.header.append(fits.Card('FILESAVE', self._output_save_to_disk[camera_id],
                                           'image has been archived to disk'), end=True)
-            frame.header.append(fits.Card('FILENAME', filename, 'archived image name'), end=True)
+
+            if self._output_save_to_disk[camera_id]:
+                frame.header.append(fits.Card('FILENAME', filename, 'archived image name'), end=True)
+            else:
+                frame.header.append(fits.Card('COMMENT', ' FILENAME not available', ''))
+
             frame.header.append(fits.Card('IMAGETYP', self._frame_type, 'frame type'), end=True)
 
             if self._frame_type == 'SCIENCE':
                 frame.header.append(fits.Card('OBJECT', self._frame_object,
                                               'science target name'), end=True)
 
-        except Exception as e:
-            print('failed to add pipeline header with error: ' + str(e))
-            return []
+        except Exception:
+            print('failed to add pipeline header with error: ')
+            traceback.print_exc(file=sys.stdout)
 
     def __add_wcs_header(self, frame, camera_id, objects):
         """Solves frame WCS and adds the appropriate header keys to the frame.
@@ -508,17 +369,28 @@ class PipelineDaemon:
             except OSError:
                 pass
 
-            args = [
+            config = self._config.cameras[camera_id]
+            wcs_args = [
                 '/usr/local/astrometry/bin/solve-field',
                 '--overwrite', '--no-plots',
                 '--axy', 'none', '--rdls', 'none', '--match', 'none',
                 '--corr', 'none', '--solved', 'none',
-                '--scale-units', 'arcminwidth', '--scale-high', str(WCS_SCALE_HIGH),
-                '--width', str(width), '--height', str(height),
-                '--ra', frame.header['TELRA'], '--dec', frame.header['TELDEC'],
-                '--radius', str(WCS_SEARCH_RADIUS), table_path]
+                '--scale-units', 'arcsecperpix', '--scale-high', str(config['wcs_scale_high']),
+                '--scale-low', str(config['wcs_scale_low']), '--width', str(width), '--height', str(height)]
 
-            subprocess.check_call(args, timeout=WCS_LIMIT,
+            ra = config.get('wcs_search_ra_card', None)
+            dec = config.get('wcs_search_dec_card', None)
+            radius = config.get('wcs_search_radius', None)
+            if ra and ra in frame.header and dec and dec in frame.header and radius and radius:
+                wcs_args.extend([
+                    '--ra', frame.header[ra],
+                    '--dec', frame.header[dec],
+                    '--radius', str(radius)
+                ])
+
+            wcs_args.append(table_path)
+
+            subprocess.check_call(wcs_args, timeout=config['wcs_timeout'],
                                   stdout=subprocess.DEVNULL,
                                   stderr=subprocess.DEVNULL)
 
@@ -539,90 +411,97 @@ class PipelineDaemon:
                         frame.header.append(fits.Card(card.keyword, card.value, comment), end=True)
             return [
                 ('wcs replace', wcs_data),
-                ('regions', ANNOTATION_LABEL.format(width / 5, -ANNOTATION_LABEL_MARGIN,
-                                                    'WCS: solved'))
+                ('regions', ANNOTATION_LABEL.format(width / 5, -config['preview_ds9_annotation_margin'],
+                                                    'WCS: SOLVED'))
             ]
         except Exception as e:
             print('failed to update wcs with error: ' + str(e))
-            return [('regions', ANNOTATION_LABEL.format(width / 4, -ANNOTATION_LABEL_MARGIN,
-                                                        'WCS: failed'))]
+            return [('regions', ANNOTATION_LABEL.format(width / 4, -config['preview_ds9_annotation_margin'],
+                                                        'WCS: FAILED'))]
 
-    def __detect_objects(self, frame):
-        """Subtracts the frame background then returns a numpy array of (x, y, flux, fwhm) for each
+    def __detect_objects(self, camera_id, frame):
+        """Subtracts the frame background then returns a numpy array of (x, y, flux, hfd) for each
            object detected by sep"""
         try:
-            if frame.header['SHUTTER'] == 'CLOSED':
-                return numpy.zeros((0, 4))
+            config = self._config[camera_id]
 
-            platescale = frame.header['CCD-XBIN'] * OBJECT_PLATESCALE
+            platescale = config['object_platescale']
+            ccd_bin = config.get('ccd_bin_card', None)
+            if ccd_bin and ccd_bin in frame.header:
+                platescale *= frame.header[ccd_bin]
 
-            # TODO: use Donuts
             image = frame.data.astype(float)
             bkg = sep.Background(image)
-            subtracted = image - bkg
+            bkg.subfrom(image)
 
             thresh = 5 * bkg.globalrms
-            raw_objects = sep.extract(subtracted, thresh)
+            raw_objects = sep.extract(image, thresh)
             objects = []
             for star in raw_objects:
                 # Discard spuriously small sources
-                if star['npix'] < OBJECT_MINPIX:
+                if star['npix'] < config['object_minpix']:
                     continue
 
                 x = star['x']
                 y = star['y']
                 a = star['a']
                 b = star['b']
-                theta = star['theta']
-                kronrad, flag = sep.kron_radius(subtracted, x, y, a, b, theta, 6.0)
-                if flag != 0:
-                    continue
 
-                flux, _, flag = sep.sum_ellipse(subtracted, x, y, a, b, theta, 2.5 * kronrad,
-                                                subpix=0)
-                if flag != 0:
-                    continue
+                try:
+                    # TODO: Do this for all objects in parallel
+                    theta = star['theta']
+                    kronrad, flag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
+                    if flag != 0:
+                        continue
 
-                r, flag = sep.flux_radius(subtracted, x, y, 6.0 * a, 0.5, normflux=flux, subpix=5)
-                if flag != 0:
-                    continue
+                    flux, _, flag = sep.sum_ellipse(image, x, y, a, b, theta, 2.5 * kronrad,
+                                                    subpix=0)
+                    if flag != 0:
+                        continue
 
-                objects.append((x, y, flux, 2 * r * platescale))
+                    r, flag = sep.flux_radius(image, x, y, 6.0 * a, 0.5, normflux=flux, subpix=5)
+                    if flag != 0:
+                        continue
 
-            dtype = [('X', float), ('Y', float), ('FLUX', float), ('FWHM', float)]
-            return numpy.array(objects, dtype=dtype)
-        except Exception as e:
-            print('failed to extract objects with error: ' + str(e))
-            return numpy.zeros((0, 4))
+                    objects.append((x, y, flux, 2 * r * platescale))
+                except Exception:
+                    # Ignore errors in individual objects
+                    pass
 
-    def __add_fwhm_header(self, frame, objects):
-        """Adds the median fwhm to the frame header"""
+            # TODO: Replace with Astropy table
+            dtype = [('X', float), ('Y', float), ('FLUX', float), ('HFD', float)]
+            return np.array(sorted(objects, key=lambda o: -o[2]), dtype=dtype)
+        except Exception:
+            print('failed to extract objects with error: ')
+            traceback.print_exc(file=sys.stdout)
+            return np.zeros((0, 4))
+
+    def __add_hfd_header(self, frame, objects):
+        """Adds the median hfd to the frame header"""
         try:
             if objects is None or len(objects) <= 0:
-                return []
+                return
 
-            median = round(numpy.median(objects['FWHM']), 2)
-            frame.header.append(fits.Card('MEDFWHM', median, '[arcsec] median estimated FWHM'),
-                                end=True)
-            frame.header.append(fits.Card('FWHMCNT', len(objects),
-                                          'number of sources used to estimate FWHM'), end=True)
-        except Exception as e:
-            print('failed to calculate fwhm with error: ' + str(e))
+            frame.header.append(create_float_card('MEDHFD', np.median(objects['HFD']).item(),
+                                                  '[arcsec] median estimated half-flux diameter', 1), end=True)
+            frame.header.append(fits.Card('HFDCNT', len(objects),
+                                          'number of sources used to estimate the HFD'), end=True)
+        except Exception:
+            print('failed to calculate HFD with error:')
+            traceback.print_exc(file=sys.stdout)
 
     def __add_intensity_stats_header(self, frame):
-        """Estimates and the median PSF FWHM and returns a list of (x,y,r) tuples that can be
-           used for the live preview overlays"""
-
+        """Adds the frame intensity to the frame header"""
         try:
-            frame.header.append(fits.Card('MEANCNTS', round(numpy.mean(frame.data), 2),
-                                          'mean frame counts'), end=True)
-            frame.header.append(fits.Card('MEDCNTS', round(numpy.median(frame.data), 2),
-                                          'median frame counts'), end=True)
-            frame.header.append(fits.Card('STDCNTS', round(numpy.std(frame.data), 2),
-                                          'standard deviation of frame counts'), end=True)
-        except Exception as e:
-            print('failed to calculate intensity stats with error: ' + str(e))
-            return []
+            frame.header.append(create_float_card('MEANCNTS', np.mean(frame.data),
+                                                  'mean frame counts', 2), end=True)
+            frame.header.append(create_float_card('MEDCNTS', np.median(frame.data),
+                                                  'median frame counts', 2), end=True)
+            frame.header.append(create_float_card('STDCNTS', np.std(frame.data),
+                                                  'standard deviation of frame counts', 2), end=True)
+        except Exception:
+            print('failed to calculate intensity stats with error: ')
+            traceback.print_exc(file=sys.stdout)
 
     def __generate_header_annotations(self, camera_id, frame, objects):
         """Returns the XPA commands to display the time and exposure on the live previews"""
@@ -630,21 +509,21 @@ class PipelineDaemon:
         height = frame.header['NAXIS2']
         date = frame.header['DATE-OBS']
         exptime = frame.header['EXPTIME']
-        arm = frame.header['INSTRARM']
+        config = self._config.cameras[camera_id]
 
         saved = 'SAVED' if self._output_save_to_disk[camera_id] else 'NOT SAVED'
         annotations = [
-            ('regions', ANNOTATION_LABEL.format(width / 4, height + ANNOTATION_LABEL_MARGIN, date)),
-            ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + ANNOTATION_LABEL_MARGIN,
-                                                '{} @ {:.1f}s'.format(arm, exptime))),
-            ('regions', ANNOTATION_LABEL.format(width / 2, -ANNOTATION_LABEL_MARGIN, saved))
+            ('regions', ANNOTATION_LABEL.format(width / 4, height + config['preview_ds9_annotation_margin'], date)),
+            ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + config['preview_ds9_annotation_margin'],
+                                                '{} @ {:.1f}s'.format(camera_id, exptime))),
+            ('regions', ANNOTATION_LABEL.format(width / 2, -config['preview_ds9_annotation_margin'], saved))
         ]
 
-        if 'MEDFWHM' in frame.header:
-            fwhm_label = ANNOTATION_LABEL.format(
-                4 * width / 5, -ANNOTATION_LABEL_MARGIN,
-                'FWHM: ' + str(frame.header['MEDFWHM']) + ' arcsec')
-            annotations.append(('regions', fwhm_label))
+        if 'MEDHFD' in frame.header:
+            hfd_label = ANNOTATION_LABEL.format(
+                4 * width / 5, -config['preview_ds9_annotation_margin'],
+                'HFD: ' + str(frame.header['MEDHFD']) + ' arcsec')
+            annotations.append(('regions', hfd_label))
 
         if objects is not None and len(objects) > 0:
             for o in objects:
@@ -655,54 +534,68 @@ class PipelineDaemon:
 
     def __update_dashboard(self, camera_id, frame):
         try:
-            # Trim overscan regions
-            r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', frame.header['IMAG-RGN']).groups()
-            data = frame.data[int(r[2])-1:int(r[3]), int(r[0])-1:int(r[1])]
+            config = self._config.cameras[camera_id]
 
-            fwhm = -1 if 'MEDFWHM' not in frame.header else frame.header['MEDFWHM']
+            # Trim overscan regions
+            data = frame.data
+            if config['image_region_card']:
+                image_region = frame.header[config['image_region_card']]
+                r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', image_region).groups()
+                data = data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
+
+            hfd = -1 if 'MEDHFD' not in frame.header else frame.header['MEDHFD']
             metadata = {
                 'date': frame.header['DATE-OBS'],
                 'exptime': frame.header['EXPTIME'],
                 'saved': frame.header['FILESAVE'],
-                'filename': frame.header['FILENAME'],
-                'fwhm': fwhm
+                'filename': frame.header['FILENAME'] if 'FILENAME' in frame.header else '',
+                'hfd': hfd
             }
 
-            scaled = rescale_image_data(data, self._dashboard_min_threshold,
-                                        self._dashboard_max_threshold)
-            png = Image.fromarray(scaled).convert('RGB')
+            scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
+            preview = Image.fromarray(scaled).convert('RGB')
 
             # Red arm flips vertically only
             # Blue arm flips horizontally and vertically
-            png = ImageOps.flip(png)
+            preview = ImageOps.flip(preview)
             if camera_id == 'BLUE':
-                png = ImageOps.mirror(png)
+                preview = ImageOps.mirror(preview)
 
-            png.save('/mnt/dashboard-generated/dashboard-' + camera_id + '.png', 'PNG', clobber=True)
-            png.thumbnail((self._dashboard_thumb_size, self._dashboard_thumb_size))
-            png.save('/mnt/dashboard-generated/dashboard-' + camera_id + '-thumb.png', 'PNG', clobber=True)
-            with open('/mnt/dashboard-generated/dashboard-' + camera_id + '.json', 'w') as outfile:
+            preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
+            thumb_path = os.path.join(self._config.dashboard_output_path, 'dashboard-' + camera_id + '-thumb.jpg')
+            preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
+
+            # Clip the central region from the image
+            cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
+            cx2 = cx1 + config['dashboard_clip_size']
+            cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
+            cy2 = cy1 + config['dashboard_clip_size']
+
+            clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
+                                         config['dashboard_min_threshold'],
+                                         config['dashboard_max_threshold'])
+            preview = Image.fromarray(clipped).convert('RGB')
+            preview = ImageOps.flip(preview)
+            clip_path = os.path.join(self._config.dashboard_output_path, 'dashboard-' + camera_id + '-clip.jpg')
+            preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+
+            json_path = os.path.join(self._config.dashboard_output_path, 'dashboard-' + camera_id + '.json')
+            with open(json_path, 'w') as outfile:
                 json.dump(metadata, outfile)
         except Exception as e:
-            print('failed to generate dashboard preview with error: ' + str(e))
-            log.error('pipelined', 'Failed to generate dashboard data (' + str(e) + ')')
+            print('failed to generate dashboard preview with error:')
+            traceback.print_exc(file=sys.stdout)
+            log.error(self._config.log_name, 'Failed to generate dashboard data (' + str(e) + ')')
 
     def __notify_opsd(self, frame):
         try:
-            header = {}
-            for card in frame.header.cards:
-                if card.is_blank or not card.keyword or card.keyword == 'COMMENT':
-                    continue
-
-                header[card.keyword] = card.value
-
-            with daemons.onemetre_operations.connect() as ops:
-                ops.notify_processed_frame(header)
+            with self._config.ops_daemon.connect() as ops:
+                ops.notify_processed_frame(header_to_dict(frame.header))
 
         except Exception as e:
-            print('failed to notify operations daemon of completed frame with error: ' + str(e))
-            log.error('pipelined', 'Failed to notify operations daemon of completed' \
-                                  ' frame (' + str(e) + ')')
+            print('failed to notify operations daemon of completed frame with error:')
+            traceback.print_exc(file=sys.stdout)
+            log.error(self._config.log_name, 'Failed to notify operations daemon of completed frame (' + str(e) + ')')
 
     def __process_frames(self, camera_id):
         process_queue = self._process_queue[camera_id]
@@ -723,10 +616,10 @@ class PipelineDaemon:
                     if self._output_save_to_disk[camera_id]:
                         date = datetime.datetime.strptime(frame.header['DATE-OBS'],
                                                           '%Y-%m-%dT%H:%M:%S.%f')
-                        ext = '.fits.gz' if self._compression_enabled else '.fits'
                         filename = self._output_frame_prefix + '-' + camera_id + '-' + \
-                            date.strftime('%Y%m%d%H%M%S%f')[:-3] + ext
+                            date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
 
+                    self.__move_bscale_bzero(frame)
                     self.__add_telescope_header(frame)
                     self.__add_environment_header(frame)
                     self.__add_pipeline_header(camera_id, frame, filename)
@@ -736,13 +629,13 @@ class PipelineDaemon:
                         steps.append('intstats')
 
                     objects = None
-                    if self._fwhm_enabled or self._wcs_enabled:
-                        objects = self.__detect_objects(frame)
+                    if self._hfd_enabled or self._wcs_enabled:
+                        objects = self.__detect_objects(camera_id, frame)
                         steps.append('objdetect')
 
-                    if self._fwhm_enabled:
-                        self.__add_fwhm_header(frame, objects)
-                        steps.append('fwhm')
+                    if self._hfd_enabled:
+                        self.__add_hfd_header(frame, objects)
+                        steps.append('hfd')
 
                     # Update previews before the relatively-slow WCS step
                     annotations = self.__generate_header_annotations(camera_id, frame, objects)
@@ -754,9 +647,8 @@ class PipelineDaemon:
                         steps.append('wcs')
 
                     if self._output_save_to_disk[camera_id]:
-                        tmp = '.tmp.fits.gz' if self._compression_enabled else '.tmp.fits'
                         tmpname = self._output_frame_prefix + '-' + camera_id + '-' + \
-                            date.strftime('%Y%m%d%H%M%S%f')[:-3] + tmp
+                            date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.tmp.fits'
 
                         tmppath = str(self._output_directory / tmpname)
                         savepath = str(self._output_directory / filename)
@@ -766,9 +658,7 @@ class PipelineDaemon:
                         shutil.move(tmppath, savepath)
 
                         print('Saved frame ' + filename)
-                        log.info('pipelined', 'Saved frame ' + filename)
-                        steps.append('compress' if self._compression_enabled else 'save')
-                        self.__save_config()
+                        log.info(self._config.log_name, 'Saved frame ' + filename)
 
                     if self._dashboard_enabled:
                         self.__update_dashboard(camera_id, frame)
@@ -779,8 +669,9 @@ class PipelineDaemon:
                 print('processed ' + loadpath + ' in ' + str(round(process_time, 2)) + 's (' \
                       + ', '.join(steps) + ')')
 
-            except Exception as e:
-                print('Unexpected exception while processing ' + loadpath + ': ' + str(e))
+            except Exception:
+                print('Unexpected exception while processing ' + loadpath + ': ')
+                traceback.print_exc(file=sys.stdout)
             finally:
                 try:
                     os.remove(loadpath)
@@ -792,8 +683,8 @@ class PipelineDaemon:
     @Pyro4.expose
     def notify_frame(self, camera_id, path):
         """Called by the camera daemons to notify that a new frame has been saved to disk"""
-        if not pyro_client_matches(NOTIFY_FRAME_IPS):
-            return CommandStatus.InvalidControlIP
+        if not pyro_client_matches(self._config.notify_frame_machines):
+            return
 
         # Guide offsets should be applied ASAP
         if self._guide_camera_id == camera_id:
@@ -817,64 +708,29 @@ class PipelineDaemon:
 
         if wait > 0.1:
             print('WARNING: ' + camera_id + ' camera blocked for ' + str(wait) + 's by pipeline')
-            log.warning('pipelined', camera_id + ' camera blocked for ' + str(wait) + \
-                's by pipeline')
-
-    @Pyro4.expose
-    def set_guide_camera(self, camera_id, background_tile_size=0, reference_frame=None):
-        """Sets the camera ID to use for guiding"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        with TryLock(self._command_lock) as success:
-            if not success:
-                return CommandStatus.Blocked
-
-            if reference_frame is not None:
-                try:
-                    self.__load_guide_reference(reference_frame)
-                except Exception as e:
-                    print('Failed to load reference frame with error: ')
-                    print(e)
-                    return CommandStatus.ReferenceFrameError
-
-            self._guide_camera_id = camera_id
-            self._guide_background_tile_size = background_tile_size
-
-            if camera_id is not None:
-                log.info('pipelined', 'Configured autoguiding with ' + camera_id \
-                                     + ' camera and ' + str(background_tile_size) + ' px tiles')
-            else:
-                log.info('pipelined', 'Disabled autoguiding')
-            return CommandStatus.Succeeded
+            log.warning(self._config.log_name, camera_id + ' camera blocked for ' + str(wait) + 's by pipeline')
 
     @Pyro4.expose
     def set_archive_directory(self, directory):
         """Sets the output frame directory"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
-            # Check that the directory exists and is writable
-            try:
-                path = pathlib.Path(directory).resolve()
-                testfile = tempfile.TemporaryFile(dir=str(path))
-                self._output_directory = path
-                testfile.close()
-            except Exception:
-                return CommandStatus.DirectoryNotWritable
+            directory_status = self.__set_archive_directory(directory)
+            if directory_status != CommandStatus.Succeeded:
+                return directory_status
 
-            log.info('pipelined', 'Frame archive directory set to ' + str(path))
-            self.__save_config()
+            log.info(self._config.log_name, 'Frame archive directory set to ' + str(directory))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_output_frame_prefix(self, prefix):
         """Sets the output frame prefix"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -883,14 +739,13 @@ class PipelineDaemon:
 
             self._output_frame_prefix = prefix
 
-            log.info('pipelined', 'Frame prefix set to ' + prefix)
-            self.__save_config()
+            log.info(self._config.log_name, 'Frame prefix set to ' + prefix)
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_archive(self, camera_id, enabled):
         """Enable or disable archiving to disk"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -898,15 +753,14 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._output_save_to_disk[camera_id] = enabled
-            log.info('pipelined', 'Frame archiving for ' + camera_id \
-                                 + (' enabled' if enabled else ' disabled'))
-            self.__save_config()
+            log.info(self._config.log_name, 'Frame archiving for ' + camera_id +
+                     (' enabled' if enabled else ' disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def register_preview(self, camera_id, address):
         """Register a ds9 window for previews"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -914,13 +768,12 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._ds9_preview_addresses[camera_id].append(address)
-            self.__save_config()
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_frame_object(self, object_name):
         """Sets the output frame number"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -929,14 +782,13 @@ class PipelineDaemon:
 
             self._frame_object = object_name
 
-            log.info('pipelined', 'Frame object set to ' + object_name)
-            self.__save_config()
+            log.info(self._config.log_name, 'Frame object set to ' + object_name)
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_frame_type(self, frame_type):
         """Sets the output frame number"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -945,47 +797,13 @@ class PipelineDaemon:
 
             self._frame_type = frame_type
 
-            log.info('pipelined', 'Frame type set to ' + frame_type)
-            self.__save_config()
+            log.info(self._config.log_name, 'Frame type set to ' + frame_type)
             return CommandStatus.Succeeded
-
-    @Pyro4.expose
-    def set_dashboard_min_threshold(self, percent):
-        """Sets the minimum contrast percentage for the web dashboard preview"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        self._dashboard_min_threshold = percent
-        log.info('pipelined', 'Dashboard preview min threshold set to ' + str(percent) + '%')
-        self.__save_config()
-        return CommandStatus.Succeeded
-
-    @Pyro4.expose
-    def set_dashboard_max_threshold(self, percent):
-        """Sets the maximum contrast percentage for the web dashboard preview"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        self._dashboard_max_threshold = percent
-        log.info('pipelined', 'Dashboard preview min threshold set to ' + str(percent) + '%')
-        self.__save_config()
-        return CommandStatus.Succeeded
-
-    @Pyro4.expose
-    def set_dashboard_thumb_size(self, max_size):
-        """Sets the maximum dimension of the web dashboard preview thumbnails"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        self._dashboard_thumb_size = max_size
-        log.info('pipelined', 'Dashboard preview thumbnail size set to ' + str(max_size) + ' px')
-        self.__save_config()
-        return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_wcs(self, enabled):
         """Enable or disable wcs solutions"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -993,29 +811,27 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._wcs_enabled = enabled
-            log.info('pipelined', 'WCS solution ' + ('enabled' if enabled else 'disabled'))
-            self.__save_config()
+            log.info(self._config.log_name, 'WCS solution ' + ('enabled' if enabled else 'disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
-    def set_fwhm(self, enabled):
-        """Enable or disable fwhm calculations"""
-        if not pyro_client_matches(CONTROL_IPS):
+    def set_hfd(self, enabled):
+        """Enable or disable half-flux diameter calculations"""
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
-            self._fwhm_enabled = enabled
-            log.info('pipelined', 'FWHM calculation ' + ('enabled' if enabled else 'disabled'))
-            self.__save_config()
+            self._hfd_enabled = enabled
+            log.info(self._config.log_name, 'HFD calculation ' + ('enabled' if enabled else 'disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_intensity_stats(self, enabled):
         """Enable or disable intensity statistics solutions"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -1023,14 +839,13 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._intensity_stats_enabled = enabled
-            log.info('pipelined', 'Intensity statistics ' + ('enabled' if enabled else 'disabled'))
-            self.__save_config()
+            log.info(self._config.log_name, 'Intensity statistics ' + ('enabled' if enabled else 'disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
     def set_dashboard(self, enabled):
         """Enable or disable dashboard updates"""
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
@@ -1038,27 +853,11 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._dashboard_enabled = enabled
-            log.info('pipelined', 'Dashboard updates ' + ('enabled' if enabled else 'disabled'))
-            self.__save_config()
+            log.info(self._config.log_name, 'Dashboard updates ' + ('enabled' if enabled else 'disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
-    def set_compression(self, enabled):
-        """Enable or disable gz compression"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        with TryLock(self._command_lock) as success:
-            if not success:
-                return CommandStatus.Blocked
-
-            self._compression_enabled = enabled
-            log.info('pipelined', 'Frame compression ' + ('enabled' if enabled else 'disabled'))
-            self.__save_config()
-            return CommandStatus.Succeeded
-
-    @Pyro4.expose
-    def configure(self, params):
+    def configure(self, params, quiet=False):
         """Set pipeline configuration to the requested state
            params should be a dictionary with the following keys:
               path: Path where images should be saved
@@ -1068,90 +867,62 @@ class PipelineDaemon:
               archive: Dictionary of instrument arm to bool for which images to archive
               wcs: Attempt to solve WCS coordinates (True/False)
               intstats: Calculate basic intensity statistics (True/False)
-              fwhm: Calculate median FWHM from objects in the image (True/False)
-              compression: Save frames with gz compression (True/False)
+              hfd: Calculate median half-flux diameters from objects in the image (True/False)
+              guide: Calculate guide profiles for the given camera
            Any properties not specified in params will be reset to its default
         """
-        if not pyro_client_matches(CONTROL_IPS):
+        if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         with TryLock(self._command_lock) as success:
             if not success:
                 return CommandStatus.Blocked
 
-            try:
-                path = pathlib.Path(params.get('path', BASE_DATA_PATH)).resolve()
-                testfile = tempfile.TemporaryFile(dir=str(path))
-                self._output_directory = path
-                testfile.close()
-            except Exception:
-                return CommandStatus.DirectoryNotWritable
+            directory_status = self.__set_archive_directory(params.get('path', 'default'))
+            if directory_status != CommandStatus.Succeeded:
+                return directory_status
 
-            log.info('pipelined', 'Frame archive directory set to ' + str(path))
+            if not quiet:
+                log.info(self._config.log_name, 'Frame archive directory set to ' + str(self._output_directory))
 
             self._output_frame_prefix = params.get('prefix', 'unknown')
-            log.info('pipelined', 'Frame prefix set to ' + self._output_frame_prefix)
+            if not quiet:
+                log.info(self._config.log_name, 'Frame prefix set to ' + self._output_frame_prefix)
 
             self._frame_type = params.get('type', 'JUNK')
-            log.info('pipelined', 'Frame type set to ' + self._frame_type)
+            if not quiet:
+                log.info(self._config.log_name, 'Frame type set to ' + self._frame_type)
 
             self._frame_object = params.get('object', '')
-            log.info('pipelined', 'Frame object set to ' + self._frame_object)
+            if not quiet:
+                log.info(self._config.log_name, 'Frame object set to ' + self._frame_object)
 
-            for k, v in params.get('archive', {c: False for c in CAMERAS}).items():
+            for k, v in params.get('archive', {cam: False for cam in self._config.cameras}).items():
                 self._output_save_to_disk[k] = v
-                log.info('pipelined', 'Frame archiving for ' + k + \
-                    (' enabled' if v else ' disabled'))
+                if not quiet:
+                    log.info(self._config.log_name, 'Frame archiving for ' + k +
+                             (' enabled' if v else ' disabled'))
 
             self._wcs_enabled = params.get('wcs', False)
-            log.info('pipelined', 'WCS solution ' + \
-                ('enabled' if self._wcs_enabled else 'disabled'))
+            if not quiet:
+                log.info(self._config.log_name, 'WCS solution ' +
+                         ('enabled' if self._wcs_enabled else 'disabled'))
 
             self._intensity_stats_enabled = params.get('intstats', False)
-            log.info('pipelined', 'Intensity statistics ' + \
-                ('enabled' if self._intensity_stats_enabled else 'disabled'))
+            if not quiet:
+                log.info(self._config.log_name, 'Intensity statistics ' +
+                         ('enabled' if self._intensity_stats_enabled else 'disabled'))
 
-            self._fwhm_enabled = params.get('fwhm', False)
-            log.info('pipelined', 'FWHM calculation ' + \
-                ('enabled' if self._fwhm_enabled else 'disabled'))
+            self._hfd_enabled = params.get('hfd', False)
+            if not quiet:
+                log.info(self._config.log_name, 'HFD calculation ' +
+                         ('enabled' if self._hfd_enabled else 'disabled'))
 
-            self._compression_enabled = params.get('compression', False)
-            log.info('pipelined', 'Frame compression ' + \
-                ('enabled' if self._compression_enabled else 'disabled'))
+            self._guide_camera_id = params.get('guide', None)
+            if not quiet:
+                log.info(self._config.log_name, 'Guide profiles ' +
+                         ('on ' + self._guide_camera_id if self._guide_camera_id else 'disabled'))
 
-            self.__save_config()
-            return CommandStatus.Succeeded
-
-    @Pyro4.expose
-    def start_night(self):
-        """Creates a new data directory for the current night and resets archive configuration"""
-        if not pyro_client_matches(CONTROL_IPS):
-            return CommandStatus.InvalidControlIP
-
-        with TryLock(self._command_lock) as success:
-            if not success:
-                return CommandStatus.Blocked
-
-            night = (datetime.datetime.utcnow() - datetime.timedelta(hours=12)).strftime('%Y%m%d')
-            path = BASE_DATA_PATH / night
-            try:
-                os.makedirs(str(path))
-                self._output_directory = path
-            except Exception as e:
-                print('failed to create night dir with exception:')
-                print(e)
-                return CommandStatus.NewDirectoryFailed
-
-            self._output_frame_prefix = 'unknown'
-            self._frame_object = ''
-            self._frame_type = 'JUNK'
-
-            for cam in CAMERAS:
-                self._output_save_to_disk[cam] = False
-            self._compression_enabled = False
-            self.__save_config()
-
-            log.info('pipelined', 'Started new night ' + night)
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -1159,26 +930,24 @@ class PipelineDaemon:
         """Returns a dictionary containing the current pipeline state"""
         return {
             'guide_camera_id': self._guide_camera_id,
-            'guide_background_tile_size': self._guide_background_tile_size,
-            'guide_reference_frame': self._guide_reference_frame,
 
             'wcs_enabled': self._wcs_enabled,
-            'fwhm_enabled': self._fwhm_enabled,
+            'hfd_enabled': self._hfd_enabled,
             'intensity_stats_enabled': self._intensity_stats_enabled,
             'dashboard_enabled': self._dashboard_enabled,
-            'compression_enabled': self._compression_enabled,
 
             'archive_enabled': self._output_save_to_disk,
             'archive_directory': str(self._output_directory),
-
-            'dashboard_min_threshold': self._dashboard_min_threshold,
-            'dashboard_max_threshold': self._dashboard_max_threshold,
-            'dashboard_thumb_size': self._dashboard_thumb_size,
 
             'frame_type': self._frame_type,
             'frame_object': self._frame_object,
             'frame_prefix': self._output_frame_prefix
         }
 
+
 if __name__ == '__main__':
-    daemons.onemetre_pipeline.launch(PipelineDaemon())
+    parser = argparse.ArgumentParser(description='Data pipeline daemon')
+    parser.add_argument('config', help='Path to configuration json file')
+    args = parser.parse_args()
+    c = Config(args.config)
+    c.daemon.launch(PipelineDaemon(c))
