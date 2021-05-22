@@ -6,9 +6,10 @@ RPMBUILD = rpmbuild --define "_topdir %(pwd)/build" \
 
 all:
 	mkdir -p build
-	${RPMBUILD} -ba onemetre-pipeline-server.spec
+	${RPMBUILD} -ba observatory-pipeline-server.spec
 	${RPMBUILD} -ba observatory-pipeline-client.spec
 	${RPMBUILD} -ba python3-warwick-observatory-pipeline.spec
+	${RPMBUILD} -ba onemetre-pipeline-data.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 

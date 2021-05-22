@@ -10,9 +10,6 @@ Requires:  ds9, xpa, xpa-libs
 Requires:  python3, python3-Pyro4, python3-pyds9, python3-warwick-observatory-common, python3-warwick-observatory-pipeline
 
 %description
-Part of the observatory software for the Warwick La Palma telescopes.
-
-pipeline is a commandline utility for configuring the pipeline.
 
 %build
 mkdir -p %{buildroot}%{_bindir}

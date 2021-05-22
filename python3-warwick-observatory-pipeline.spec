@@ -7,9 +7,6 @@ Url:            https://github.com/warwick-one-metre/pipelined
 BuildArch:      noarch
 
 %description
-Part of the observatory software for the Warwick La Palma telescopes.
-
-python3-warwick-observatory-pipeline holds the common pipeline code.
 
 %prep
 

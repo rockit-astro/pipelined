@@ -29,9 +29,10 @@ jobs:
       - name: Set Package Versions
         run: |
           # Set the spec Revision field to <latest in repo> + 1
-          centos-packages/set-spec-release.sh onemetre-pipeline-server.spec
+          centos-packages/set-spec-release.sh observatory-pipeline-server.spec
           centos-packages/set-spec-release.sh observatory-pipeline-client.spec
           centos-packages/set-spec-release.sh python3-warwick-observatory-pipeline.spec
+          centos-packages/set-spec-release.sh onemetre-pipeline-data.spec
       - name: Package RPMs
         run:
           make
