@@ -423,9 +423,9 @@ class PipelineDaemon:
         """Subtracts the frame background then returns a numpy array of (x, y, flux, hfd) for each
            object detected by sep"""
         try:
-            config = self._config[camera_id]
+            config = self._config.cameras[camera_id]
 
-            platescale = config['object_platescale']
+            platescale = config['platescale']
             ccd_bin = config.get('ccd_bin_card', None)
             if ccd_bin and ccd_bin in frame.header:
                 platescale *= frame.header[ccd_bin]
@@ -442,14 +442,14 @@ class PipelineDaemon:
                 if star['npix'] < config['object_minpix']:
                     continue
 
-                x = star['x']
-                y = star['y']
-                a = star['a']
-                b = star['b']
+                x = np.array([star['x']])
+                y = np.array([star['y']])
+                a = np.array([star['a']])
+                b = np.array([star['b']])
 
                 try:
                     # TODO: Do this for all objects in parallel
-                    theta = star['theta']
+                    theta = np.array([star['theta']])
                     kronrad, flag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
                     if flag != 0:
                         continue
@@ -463,7 +463,7 @@ class PipelineDaemon:
                     if flag != 0:
                         continue
 
-                    objects.append((x, y, flux, 2 * r * platescale))
+                    objects.append((x.item(), y.item(), flux, 2 * r * platescale))
                 except Exception:
                     # Ignore errors in individual objects
                     pass
@@ -525,9 +525,11 @@ class PipelineDaemon:
                 'HFD: ' + str(frame.header['MEDHFD']) + ' arcsec')
             annotations.append(('regions', hfd_label))
 
+
+        platescale = config['platescale']
         if objects is not None and len(objects) > 0:
             for o in objects:
-                cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3])
+                cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3] / platescale)
                 annotations.append(('regions', cr))
 
         return annotations
@@ -650,8 +652,8 @@ class PipelineDaemon:
                         tmpname = self._output_frame_prefix + '-' + camera_id + '-' + \
                             date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.tmp.fits'
 
-                        tmppath = str(self._output_directory / tmpname)
-                        savepath = str(self._output_directory / filename)
+                        tmppath = os.path.join(self._output_directory, tmpname)
+                        savepath = os.path.join(self._output_directory, filename)
 
                         # Simulate an atomic write by writing to a temporary file then renaming
                         frame.writeto(tmppath, overwrite=True)
