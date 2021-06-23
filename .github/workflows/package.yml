@@ -33,6 +33,8 @@ jobs:
           centos-packages/set-spec-release.sh observatory-pipeline-client.spec
           centos-packages/set-spec-release.sh python3-warwick-observatory-pipeline.spec
           centos-packages/set-spec-release.sh onemetre-pipeline-data.spec
+          centos-packages/set-spec-release.sh clasp-pipeline-data.spec
+
       - name: Package RPMs
         run:
           make

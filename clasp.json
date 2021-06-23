@@ -1,0 +1,139 @@
+{
+  "daemon": "clasp_pipeline",
+  "log_name": "pipelined@clasp",
+  "control_machines": ["CLASPTCS"],
+  "notify_frame_machines": ["CLASPTCS", "CLASPDAS2"],
+  "environment_daemon": "observatory_environment",
+  "environment_query_timeout": 1,
+  "telescope_query_timeout": 1,
+  "ops_daemon": "clasp_operations",
+  "data_root_path": "/home/ops",
+  "dashboard_output_path": "/mnt/dashboard-generated/",
+  "cameras": {
+    "CAM1": {
+      "wcs_scale_high": 0.95,
+      "wcs_scale_low": 1.0,
+      "wcs_timeout": 4.0,
+      "wcs_search_ra_card": "TELRA",
+      "wcs_search_dec_card": "TELDEC",
+      "wcs_search_radius": 1.75,
+      "ccd_bin_card": "CCD-XBIN",
+      "image_region_card": "IMAG-RGN",
+      "platescale": 0.988,
+      "object_minpix": 16,
+      "preview_ds9_width": 512,
+      "preview_ds9_height": 572,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 30,
+      "dashboard_flip_vertical": true,
+      "dashboard_flip_horizontal": false,
+      "dashboard_min_threshold": 5,
+      "dashboard_max_threshold": 95,
+      "dashboard_thumb_size": 1024,
+      "dashboard_clip_size": 1024
+    },
+    "CAM2": {
+      "wcs_scale_high": 0.95,
+      "wcs_scale_low": 1.0,
+      "wcs_timeout": 4.0,
+      "wcs_search_ra_card": "TELRA",
+      "wcs_search_dec_card": "TELDEC",
+      "wcs_search_radius": 1.75,
+      "ccd_bin_card": "CCD-XBIN",
+      "image_region_card": "IMAG-RGN",
+      "platescale": 0.988,
+      "object_minpix": 16,
+      "preview_ds9_width": 512,
+      "preview_ds9_height": 572,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 30,
+      "dashboard_flip_vertical": true,
+      "dashboard_flip_horizontal": false,
+      "dashboard_min_threshold": 5,
+      "dashboard_max_threshold": 95,
+      "dashboard_thumb_size": 1024,
+      "dashboard_clip_size": 1024
+    }
+  },
+  "environment_cards": [
+    {
+      "key": "EXTTEMP",
+      "comment": "[deg c] temperature outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "EXTHUMD",
+      "comment": "[%] humidity outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "relative_humidity",
+      "type": "float1dp"
+    },
+    {
+      "key": "PRESSURE",
+      "comment": "[hPa] air pressure",
+      "sensor": "w1m_vaisala",
+      "parameter": "pressure",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDSPD",
+      "comment": "[m/s] wind speed outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDGUST",
+      "comment": "[m/s] wind gust speed outside dome",
+      "sensor": "w1m_vaisala",
+      "parameter": "wind_gust",
+      "type": "float1dp"
+    },
+    {
+      "key": "MEDWIND",
+      "comment": "[m/s] median wind speed (last 20 min)",
+      "sensor": "w1m_vaisala",
+      "parameter": "median_wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "SKYCLAR",
+      "comment": "[deg c] sky clarity",
+      "sensor": "superwasp_aurora",
+      "parameter": "clarity",
+      "type": "float1dp"
+    },
+    {
+      "key": "DEWDELTA",
+      "comment": "[deg c] temperature above dew point",
+      "sensor": "w1m_vaisala",
+      "parameter": "dew_point_delta",
+      "type": "float1dp"
+    },
+    {
+      "key": "TNGDIMM",
+      "comment": "[arcsec] TNG DIMM seeing measurement",
+      "sensor": "tng",
+      "parameter": "seeing",
+      "type": "float2dp"
+    },
+    {
+      "key": "INGDIMM",
+      "comment": "[arcsec] ING RoboDIMM seeing measurement",
+      "sensor": "robodimm",
+      "parameter": "seeing",
+      "type": "float2dp"
+    },
+    {
+      "key": "TNGDUST",
+      "comment": "[ug/m3] TNG Dust measurement",
+      "sensor": "tng",
+      "parameter": "dust",
+      "type": "float1dp"
+    }
+  ],
+  "telescope_cards": [
+  ]
+}

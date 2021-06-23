@@ -10,6 +10,7 @@ all:
 	${RPMBUILD} -ba observatory-pipeline-client.spec
 	${RPMBUILD} -ba python3-warwick-observatory-pipeline.spec
 	${RPMBUILD} -ba onemetre-pipeline-data.spec
+	${RPMBUILD} -ba clasp-pipeline-data.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 
