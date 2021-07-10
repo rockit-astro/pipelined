@@ -82,7 +82,7 @@ The configuration options are:
 ### Initial Installation
 
 
-The automated packaging scripts will push 5 RPM packages to the observatory package repository:
+The automated packaging scripts will push 6 RPM packages to the observatory package repository:
 
 | Package           | Description |
 | ----------------- | ------ |
@@ -91,10 +91,13 @@ The automated packaging scripts will push 5 RPM packages to the observatory pack
 | python3-warwick-observatory-pipeline | Contains the python module with shared code. |
 | onemetre-pipeline-data | Contains the json configuration for the W1m pipeline installation. |
 | clasp-pipeline-data | Contains the json configuration for the CLASP pipeline installation. |
+| superwasp-pipeline-data | Contains the json configuration for the SuperWASP pipeline installation. |
 
 The `observatory-pipeline-server` and `observatory-pipeline-client` and `onemetre-pipeline-data` packages should be installed on the `onemetre-tcs` TCS machine.
 
 The `observatory-pipeline-server` and `observatory-pipeline-client` and `clasp-pipeline-data` packages should be installed on the `clasp-tcs` TCS machine.
+
+The `observatory-pipeline-server` and `observatory-pipeline-client` and `superwasp-pipeline-data` packages should be installed on the `superwasp-tcs` TCS machine.
 
 After installing packages, the systemd service should be enabled:
 

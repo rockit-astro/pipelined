@@ -11,6 +11,7 @@ all:
 	${RPMBUILD} -ba python3-warwick-observatory-pipeline.spec
 	${RPMBUILD} -ba onemetre-pipeline-data.spec
 	${RPMBUILD} -ba clasp-pipeline-data.spec
+	${RPMBUILD} -ba superwasp-pipeline-data.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 
