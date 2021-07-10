@@ -15,12 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with pipelined.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Daemon for the Warwick one-metre telescope frame pipeline"""
+"""Frame pipeline daemon"""
 
 # pylint: disable=no-self-use
-# pylint: disable=too-many-instance-attributes
-# pylint: disable=too-many-lines
-# pylint: disable=too-many-nested-blocks
 # pylint: disable=too-many-branches
 
 import argparse
@@ -683,8 +680,10 @@ class PipelineDaemon:
                 process_queue.task_done()
 
     @Pyro4.expose
-    def notify_frame(self, camera_id, path):
-        """Called by the camera daemons to notify that a new frame has been saved to disk"""
+    def notify_frame(self, camera_id, filename):
+        """Called by the camera daemons to notify that a new frame has been saved to disk
+           filename is specified relative to the incoming_data_path config value."""
+        path = os.path.join(self._config.incoming_data_path, filename)
         if not pyro_client_matches(self._config.notify_frame_machines):
             return
 

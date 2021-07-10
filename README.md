@@ -27,6 +27,7 @@ The configuration options are:
   "environment_query_timeout": 1, # The maximum timeout when querying environment data. Frame headers will be marked as not available if this expires.
   "telescope_query_timeout": 1, # The maximum timeout when querying telescope data. Frame headers will be marked as not available if this expires.
   "ops_daemon": "localhost_test5", # The operations daemon that should be notified when a frame is processed. See opsd project.
+  "incoming_data_path": "/var/tmp", # The directory where camera daemons save frames before calling notify_frame.
   "data_root_path": "/home/ops", # The root path under which nightly data directories are created.
   "dashboard_output_path": "/home/ops", # The path to save generated preview data to display on the dashboard (usually an nfs mount).
   "cameras": {

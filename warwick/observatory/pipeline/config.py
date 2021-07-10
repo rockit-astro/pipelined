@@ -24,8 +24,8 @@ CONFIG_SCHEMA = {
     'additionalProperties': False,
     'required': [
         'daemon', 'environment_daemon', 'environment_query_timeout', 'telescope_query_timeout', 'ops_daemon',
-        'log_name', 'control_machines', 'notify_frame_machines', 'data_root_path', 'dashboard_output_path', 'cameras',
-        'environment_cards', 'telescope_cards'
+        'log_name', 'control_machines', 'notify_frame_machines', 'incoming_data_path', 'data_root_path', 'dashboard_output_path',
+        'cameras', 'environment_cards', 'telescope_cards'
     ],
     'properties': {
         'daemon': {
@@ -64,6 +64,10 @@ CONFIG_SCHEMA = {
                 'type': 'string',
                 'machine_name': True
             }
+        },
+        'incoming_data_path': {
+            'type': 'string',
+            'directory_path': True
         },
         'data_root_path': {
             'type': 'string',
@@ -245,6 +249,7 @@ class Config:
         self.log_name = config_json['log_name']
         self.control_ips = [getattr(IP, machine) for machine in config_json['control_machines']]
         self.notify_frame_machines = [getattr(IP, machine) for machine in config_json['notify_frame_machines']]
+        self.incoming_data_path = config_json['incoming_data_path']
         self.data_root_path = config_json['data_root_path']
         self.dashboard_output_path = config_json['dashboard_output_path']
         self.cameras = config_json['cameras']
