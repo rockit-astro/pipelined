@@ -1,12 +1,12 @@
 Name:      observatory-pipeline-client
-Version:   20210430
+Version:   20210715
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Pipeline client for the Warwick La Palma telescopes.
 License:   GPL-3.0
 Group:     Unspecified
 BuildArch: noarch
-Requires:  ds9, xpa, xpa-libs
+Requires:  ds9, xpa
 Requires:  python3, python3-Pyro4, python3-pyds9, python3-warwick-observatory-common, python3-warwick-observatory-pipeline
 
 %description
