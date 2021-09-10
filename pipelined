@@ -555,11 +555,9 @@ class PipelineDaemon:
 
             scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
             preview = Image.fromarray(scaled).convert('RGB')
-
-            # Red arm flips vertically only
-            # Blue arm flips horizontally and vertically
-            preview = ImageOps.flip(preview)
-            if camera_id == 'BLUE':
+            if config['dashboard_flip_vertical']:
+                preview = ImageOps.flip(preview)
+            if config['dashboard_flip_horizontal']:
                 preview = ImageOps.mirror(preview)
 
             preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
