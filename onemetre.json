@@ -8,8 +8,8 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "onemetre_operations",
   "incoming_data_path": "/var/tmp",
-  "data_root_path": "/home/ops/OBS_DATA",
-  "dashboard_output_path": "/mnt/dashboard-generated/",
+  "data_root_path": "/data/w1m",
+  "dashboard_output_path": "/mnt/dashboard-generated",
   "cameras": {
     "BLUE": {
       "wcs_scale_high": 0.38,
