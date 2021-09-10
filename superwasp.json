@@ -199,6 +199,7 @@
       "comment": "tcs server software version",
       "type": "string",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "software_version"
     },
     {
@@ -206,6 +207,7 @@
       "comment": "telescope status",
       "type": "string",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "state_label"
     },
     {
@@ -213,6 +215,7 @@
       "comment": "roof status",
       "type": "string",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "roof_state_label"
     },
     {
@@ -220,6 +223,7 @@
       "comment": "telescope nominal J2000 RA",
       "type": "sexagesimalha",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "ra"
     },
     {
@@ -227,6 +231,7 @@
       "comment": "telescope nominal J2000 Dec",
       "type": "sexagesimaldeg",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "dec"
     },
     {
@@ -234,6 +239,7 @@
       "comment": "telescope nominal HA",
       "type": "sexagesimalha",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "ha"
     },
     {
@@ -241,6 +247,7 @@
       "comment": "[deg] telescope nominal J2000 RA",
       "type": "float5dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "ra"
     },
     {
@@ -248,6 +255,7 @@
       "comment": "[deg] telescope nominal J2000 Dec",
       "type": "float5dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "dec"
     },
     {
@@ -255,6 +263,7 @@
       "comment": "[deg] telescope nominal hour angle",
       "type": "float5dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "ha"
     },
     {
@@ -262,6 +271,7 @@
       "comment": "[deg] telescope nominal altitude",
       "type": "float5dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "alt"
     },
     {
@@ -269,6 +279,7 @@
       "comment": "[deg] telescope nominal azimuth",
       "type": "float5dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "az"
     },
     {
@@ -276,6 +287,7 @@
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "site_latitude"
     },
     {
@@ -283,6 +295,7 @@
       "comment": "telescope longitude (east)",
       "type": "sexagesimaldeg",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "site_longitude"
     },
     {
@@ -290,6 +303,7 @@
       "comment": "[m] telescope elevation",
       "type": "int",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "site_elevation"
     },
     {
@@ -297,6 +311,7 @@
       "comment": "[deg] nominal distance from moon",
       "type": "float1dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "moon_separation"
     },
     {
@@ -304,6 +319,7 @@
       "comment": "[deg] nominal distance from sun",
       "type": "float1dp",
       "daemon": "superwasp_telescope",
+      "method": "report_status",
       "parameter": "sun_separation"
     }
   ]

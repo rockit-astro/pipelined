@@ -169,6 +169,7 @@
       "comment": "tcs server software version",
       "type": "string",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "software_version"
     },
     {
@@ -176,20 +177,31 @@
       "comment": "telescope status",
       "type": "string",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "state_label"
     },
     {
-      "key": "DOMESTAT",
-      "comment": "dome status",
+      "key": "DOMEEAST",
+      "comment": "dome east shutter status",
       "type": "string",
       "daemon": "onemetre_dome",
-      "parameter": "state_label"
+      "method": "status",
+      "parameter": "shutter_a_label"
+    },
+    {
+      "key": "DOMEWEST",
+      "comment": "dome west shutter status",
+      "type": "string",
+      "daemon": "onemetre_dome",
+      "method": "status",
+      "parameter": "shutter_b_label"
     },
     {
       "key": "TELRA",
       "comment": "telescope nominal J2000 RA",
       "type": "sexagesimalha",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "ra"
     },
     {
@@ -197,6 +209,7 @@
       "comment": "telescope nominal J2000 Dec",
       "type": "sexagesimaldeg",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "dec"
     },
     {
@@ -204,6 +217,7 @@
       "comment": "telescope nominal HA",
       "type": "sexagesimalha",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "ha"
     },
     {
@@ -211,6 +225,7 @@
       "comment": "[deg] telescope nominal J2000 RA",
       "type": "float5dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "ra"
     },
     {
@@ -218,6 +233,7 @@
       "comment": "[deg] telescope nominal J2000 Dec",
       "type": "float5dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "dec"
     },
     {
@@ -225,6 +241,7 @@
       "comment": "[deg] telescope nominal hour angle",
       "type": "float5dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "ha"
     },
     {
@@ -232,6 +249,7 @@
       "comment": "[deg] telescope nominal altitude",
       "type": "float5dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "alt"
     },
     {
@@ -239,6 +257,7 @@
       "comment": "[deg] telescope nominal azimuth",
       "type": "float5dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "az"
     },
     {
@@ -246,6 +265,7 @@
       "comment": "[um] nominal telescope focus",
       "type": "float1dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "az"
     },
     {
@@ -253,6 +273,7 @@
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "site_latitude"
     },
     {
@@ -260,6 +281,7 @@
       "comment": "telescope longitude (east)",
       "type": "sexagesimaldeg",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "site_longitude"
     },
     {
@@ -267,6 +289,7 @@
       "comment": "[m] telescope elevation",
       "type": "int",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "site_elevation"
     },
     {
@@ -274,6 +297,7 @@
       "comment": "[deg] nominal distance from moon",
       "type": "float1dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "moon_separation"
     },
     {
@@ -281,6 +305,7 @@
       "comment": "[deg] nominal distance from sun",
       "type": "float1dp",
       "daemon": "onemetre_telescope",
+      "method": "report_status",
       "parameter": "sun_separation"
     }
   ]

@@ -209,8 +209,11 @@ CONFIG_SCHEMA = {
                         'type': 'string',
                         'daemon_name': True
                     },
+                    'method': {
+                        'type': 'string'
+                    },
                     'parameter': {
-                        'type': 'string',
+                        'type': 'string'
                     },
                     'type': {
                         'type': 'string',

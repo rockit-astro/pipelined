@@ -1,5 +1,5 @@
 Name:      superwasp-pipeline-data
-Version:   20210710
+Version:   20210910
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline configuration for the CLASP telescope.

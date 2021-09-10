@@ -269,12 +269,13 @@ class PipelineDaemon:
         data = {}
         # Query data from daemons
         for config in self._config.telescope_cards:
-            if config['daemon'] in data:
+            key = config['daemon'].uri + '_' + config['method']
+            if key in data:
                 continue
 
             try:
                 with config['daemon'].connect(self._config.telescope_query_timeout) as daemon:
-                    data[config['daemon']] = daemon.report_status()
+                    data[key] = getattr(daemon, config['method'])()
             except Exception as e:
                 print('failed to add telescope headers with error: ')
                 traceback.print_exc(file=sys.stdout)
@@ -283,7 +284,8 @@ class PipelineDaemon:
 
         # Build cards
         for config in self._config.telescope_cards:
-            value = data.get(config['daemon'], {}).get(config['parameter'], None)
+            key = config['daemon'].uri + '_' + config['method']
+            value = data.get(key, {}).get(config['parameter'], None)
             if value is not None:
                 frame.header.append(create_formatted_card(config['key'], value, config['comment'], config['type']),
                                     end=True)
