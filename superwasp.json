@@ -2,7 +2,7 @@
   "daemon": "superwasp_pipeline",
   "log_name": "pipelined@superwasp",
   "control_machines": ["LocalHost", "SWASPTCS"],
-  "notify_frame_machines": ["SWASPCameraPi"],
+  "notify_frame_machines": ["SWASPCameraPi1", "SWASPCameraPi2"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
   "telescope_query_timeout": 1,
