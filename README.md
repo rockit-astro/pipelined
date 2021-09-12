@@ -126,6 +126,25 @@ If you want to run ds9 previews from *another* machine (e.g. `onemetre-dome`) th
 ```
 firewall-cmd --zone=public --add-rich-rule='rule family="ipv4" source address="<pipelined host ip>" accept' --permanent
 ```
+
+The SuperWASP TCS should export a data partition for the camera pis to write to.
+
+Edit `/etc/exports` and add:
+
+```
+/data/wasp   10.2.6.120(rw,sync,no_root_squash,no_all_squash) 10.2.6.121(rw,sync,no_root_squash,no_all_squash)
+```
+
+Next enable the NFS daemons:
+```
+sudo systemctl enable rpcbind
+sudo systemctl enable nfs-server
+sudo systemctl enable nfs-lock
+sudo systemctl enable nfs-idmap
+```
+
+and `systemctl start` them or reboot.
+
 ### Upgrading Installation
 
 New RPM packages are automatically created and pushed to the package repository for each push to the `master` branch.
