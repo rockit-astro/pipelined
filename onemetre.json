@@ -266,7 +266,7 @@
       "type": "float1dp",
       "daemon": "onemetre_telescope",
       "method": "report_status",
-      "parameter": "az"
+      "parameter": "telescope_focus_um"
     },
     {
       "key": "SITELAT",
