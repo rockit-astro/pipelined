@@ -47,7 +47,7 @@ TYPE_VALUES = {
 def run_command(command, args):
     """Runs a daemon command, handling error messages"""
     if 'PIPELINED_CONFIG_PATH' in os.environ:
-        config = Config(os.environ['PIPELINED_CONFIG_PATH'])
+        config = Config(os.environ['PIPELINED_CONFIG_PATH'], validate_directories=False)
     else:
         # Load the config file defined in the PIPELINED_CONFIG_PATH environment variable or from the
         # default system location (/etc/pipelined/). Exit with an error if zero or multiple are found.
@@ -57,7 +57,7 @@ def run_command(command, args):
                   'Run as PIPELINED_CONFIG_PATH=/path/to/config.json pipeline <command>')
             return 1
 
-        config = Config(files[0])
+        config = Config(files[0], validate_directories=False)
 
     try:
         ret = command(config, args)

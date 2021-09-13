@@ -232,17 +232,22 @@ CONFIG_SCHEMA = {
 
 class Config:
     """Daemon configuration parsed from a json file"""
-    def __init__(self, config_filename):
+    def __init__(self, config_filename, validate_directories=True):
         # Will throw on file not found or invalid json
         with open(config_filename, 'r') as config_file:
             config_json = json.load(config_file)
 
         # Will throw on schema violations
-        validation.validate_config(config_json, CONFIG_SCHEMA, {
+        validators = {
             'daemon_name': validation.daemon_name_validator,
-            'machine_name': validation.machine_name_validator,
-            'directory_path': validation.directory_path_validator,
-        })
+            'machine_name': validation.machine_name_validator
+        }
+
+        # Don't validate directories if we are loading the config on a different machine
+        if validate_directories:
+            validators['directory_path'] = validation.directory_path_validator
+
+        validation.validate_config(config_json, CONFIG_SCHEMA, validators)
 
         self.daemon = getattr(daemons, config_json['daemon'])
         self.environment_daemon = getattr(daemons, config_json['environment_daemon'])

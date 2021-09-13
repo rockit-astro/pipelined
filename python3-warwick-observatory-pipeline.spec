@@ -1,5 +1,5 @@
 Name:           python3-warwick-observatory-pipeline
-Version:        20210430
+Version:        20210913
 Release:        0
 License:        GPL3
 Summary:        Common backend code for the Warwick La Palma telescopes pipeline daemon
