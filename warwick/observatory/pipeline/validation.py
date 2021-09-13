@@ -23,7 +23,7 @@ def configure_flats_validation_schema():
     return {
         'type': 'object',
         'additionalProperties': False,
-        'required': ['path', 'prefix'],
+        'required': ['prefix'],
         'properties': {
             'path': {
                 'type': 'string',
@@ -39,7 +39,7 @@ def configure_standard_validation_schema():
     return {
         'type': 'object',
         'additionalProperties': False,
-        'required': ['path', 'prefix', 'type', 'archive'],
+        'required': ['prefix', 'type', 'archive'],
         'properties': {
             'path': {
                 'type': 'string',
