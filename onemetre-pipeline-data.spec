@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-data
-Version:   20210913
+Version:   20210915
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline configuration for W1m telescope.

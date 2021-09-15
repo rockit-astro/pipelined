@@ -12,8 +12,8 @@
   "dashboard_output_path": "/mnt/dashboard-generated",
   "cameras": {
     "BLUE": {
-      "wcs_scale_high": 0.38,
-      "wcs_scale_low": 0.40,
+      "wcs_scale_high": 0.40,
+      "wcs_scale_low": 0.38,
       "wcs_timeout": 4.0,
       "wcs_search_ra_card": "TELRA",
       "wcs_search_dec_card": "TELDEC",
