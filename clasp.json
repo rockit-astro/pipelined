@@ -136,5 +136,141 @@
     }
   ],
   "telescope_cards": [
+    {
+      "key": "MNTSWVER",
+      "comment": "mount server software version",
+      "type": "string",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "software_version"
+    },
+    {
+      "key": "MNTSTATE",
+      "comment": "telescope status",
+      "type": "string",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "state_label"
+    },
+    {
+      "key": "DOMENORT",
+      "comment": "dome north shutter status",
+      "type": "string",
+      "daemon": "clasp_dome",
+      "method": "status",
+      "parameter": "shutter_a_label"
+    },
+    {
+      "key": "DOMESOUT",
+      "comment": "dome south shutter status",
+      "type": "string",
+      "daemon": "clasp_dome",
+      "method": "status",
+      "parameter": "shutter_b_label"
+    },
+    {
+      "key": "MNTRA",
+      "comment": "mount nominal J2000 RA",
+      "type": "sexagesimalha",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDEC",
+      "comment": "mount nominal J2000 Dec",
+      "type": "sexagesimaldeg",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHA",
+      "comment": "mount nominal HA",
+      "type": "sexagesimalha",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "MNTRAD",
+      "comment": "[deg] mount nominal J2000 RA",
+      "type": "float5dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDECD",
+      "comment": "[deg] mount nominal J2000 Dec",
+      "type": "float5dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHAD",
+      "comment": "[deg] mount nominal hour angle",
+      "type": "float5dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "ALTITUDE",
+      "comment": "[deg] mount nominal altitude",
+      "type": "float5dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "alt"
+    },
+    {
+      "key": "AZIMUTH",
+      "comment": "[deg] mount nominal azimuth",
+      "type": "float5dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "az"
+    },
+    {
+      "key": "SITELAT",
+      "comment": "telescope latitude (north)",
+      "type": "sexagesimaldeg",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "site_latitude"
+    },
+    {
+      "key": "SITELONG",
+      "comment": "telescope longitude (east)",
+      "type": "sexagesimaldeg",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "site_longitude"
+    },
+    {
+      "key": "SITEELEV",
+      "comment": "[m] telescope elevation",
+      "type": "int",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "site_elevation"
+    },
+    {
+      "key": "MOONSEP",
+      "comment": "[deg] nominal distance from moon",
+      "type": "float1dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "moon_separation"
+    },
+    {
+      "key": "SUNSEP",
+      "comment": "[deg] nominal distance from sun",
+      "type": "float1dp",
+      "daemon": "clasp_telescope",
+      "method": "report_status",
+      "parameter": "sun_separation"
+    }
   ]
 }
