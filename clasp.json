@@ -1,8 +1,8 @@
 {
   "daemon": "clasp_pipeline",
   "log_name": "pipelined@clasp",
-  "control_machines": ["CLASPTCS"],
-  "notify_frame_machines": ["CLASPTCS", "CLASPDAS2"],
+  "control_machines": ["CLASPTCS", "CLASPDAS1"],
+  "notify_frame_machines": ["CLASPDAS1"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
   "telescope_query_timeout": 1,
