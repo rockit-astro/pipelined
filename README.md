@@ -139,8 +139,10 @@ Next enable the NFS daemons:
 ```
 sudo systemctl enable rpcbind
 sudo systemctl enable nfs-server
-sudo systemctl enable nfs-lock
-sudo systemctl enable nfs-idmap
+sudo firewall-cmd --permanent --zone=public --add-service=nfs
+sudo firewall-cmd --permanent --zone=public --add-service=mountd
+sudo firewall-cmd --permanent --zone=public --add-service=rpc-bind
+sudo firewall-cmd --reload
 ```
 
 and `systemctl start` them or reboot.
