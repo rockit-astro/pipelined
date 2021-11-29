@@ -233,6 +233,14 @@
       "parameter": "az"
     },
     {
+      "key": "TELFOCUS",
+      "comment": "[steps] nominal telescope focus",
+      "type": "int",
+      "daemon": "clasp_focus",
+      "method": "report_status",
+      "parameter": "current_steps_1"
+    },
+    {
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
