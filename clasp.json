@@ -8,7 +8,7 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "clasp_operations",
   "incoming_data_path": "/var/tmp",
-  "data_root_path": "/home/ops",
+  "data_root_path": "/data",
   "dashboard_output_path": "/mnt/dashboard-generated/",
   "cameras": {
     "CAM1": {
