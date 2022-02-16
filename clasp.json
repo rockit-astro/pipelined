@@ -54,6 +54,50 @@
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
       "dashboard_clip_size": 1024
+    },
+    "FLI1": {
+      "wcs_scale_low": 1.55,
+      "wcs_scale_high": 1.6,
+      "wcs_timeout": 4.0,
+      "wcs_search_ra_card": "TELRA",
+      "wcs_search_dec_card": "TELDEC",
+      "wcs_search_radius": 1.75,
+      "ccd_bin_card": "CCD-XBIN",
+      "image_region_card": "IMAG-RGN",
+      "platescale": 1.57,
+      "object_minpix": 16,
+      "preview_ds9_width": 512,
+      "preview_ds9_height": 572,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 30,
+      "dashboard_flip_vertical": true,
+      "dashboard_flip_horizontal": false,
+      "dashboard_min_threshold": 5,
+      "dashboard_max_threshold": 95,
+      "dashboard_thumb_size": 1024,
+      "dashboard_clip_size": 1024
+    },
+    "FLI2": {
+      "wcs_scale_low": 1.55,
+      "wcs_scale_high": 1.6,
+      "wcs_timeout": 4.0,
+      "wcs_search_ra_card": "TELRA",
+      "wcs_search_dec_card": "TELDEC",
+      "wcs_search_radius": 1.75,
+      "ccd_bin_card": "CCD-XBIN",
+      "image_region_card": "IMAG-RGN",
+      "platescale": 1.57,
+      "object_minpix": 16,
+      "preview_ds9_width": 512,
+      "preview_ds9_height": 572,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 30,
+      "dashboard_flip_vertical": true,
+      "dashboard_flip_horizontal": false,
+      "dashboard_min_threshold": 5,
+      "dashboard_max_threshold": 95,
+      "dashboard_thumb_size": 1024,
+      "dashboard_clip_size": 1024
     }
   },
   "environment_cards": [
@@ -233,12 +277,20 @@
       "parameter": "az"
     },
     {
-      "key": "TELFOCUS",
-      "comment": "[steps] nominal telescope focus",
+      "key": "TEL1FOC",
+      "comment": "[steps] nominal telescope 1 focus",
       "type": "int",
       "daemon": "clasp_focus",
       "method": "report_status",
       "parameter": "current_steps_1"
+    },
+    {
+      "key": "TEL2FOC",
+      "comment": "[steps] nominal telescope 2 focus",
+      "type": "int",
+      "daemon": "clasp_focus",
+      "method": "report_status",
+      "parameter": "current_steps_2"
     },
     {
       "key": "SITELAT",
