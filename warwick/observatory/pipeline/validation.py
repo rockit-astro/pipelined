@@ -18,6 +18,7 @@
 
 # pylint: disable=invalid-name
 
+
 def configure_flats_validation_schema():
     """Path and Prefix are the only valid user-configurable properties when taking flats"""
     return {
@@ -33,6 +34,7 @@ def configure_flats_validation_schema():
             },
         }
     }
+
 
 def configure_standard_validation_schema():
     """Standard observations support all properties"""
@@ -56,15 +58,6 @@ def configure_standard_validation_schema():
             },
             'archive': {
                 'type': 'object',
-                'additionalProperties': False,
-                'properties': {
-                    'RED': {
-                        'type': 'boolean',
-                    },
-                    'BLUE': {
-                        'type': 'boolean',
-                    }
-                }
             },
             'wcs': {
                 'type': 'boolean'
