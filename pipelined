@@ -139,7 +139,7 @@ class PipelineDaemon:
         self._wcs_enabled = False
         self._hfd_enabled = False
         self._intensity_stats_enabled = False
-        self._dashboard_enabled = True
+        self._dashboard_enabled = False
 
         # Information for building the output filename
         self._output_directory = config.data_root_path

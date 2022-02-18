@@ -1,5 +1,5 @@
 Name:      observatory-pipeline-server
-Version:   20210911
+Version:   20220218
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline server.
