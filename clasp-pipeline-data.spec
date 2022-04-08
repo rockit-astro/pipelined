@@ -1,5 +1,5 @@
 Name:      clasp-pipeline-data
-Version:   20220216
+Version:   20220408
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline configuration for the CLASP telescope.

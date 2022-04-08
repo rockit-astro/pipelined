@@ -31,7 +31,9 @@
       "dashboard_min_threshold": 5,
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
-      "dashboard_clip_size": 1024
+      "dashboard_clip_size": 1024,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4
     },
     "CAM2": {
       "wcs_scale_low": 0.95,
@@ -53,7 +55,9 @@
       "dashboard_min_threshold": 5,
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
-      "dashboard_clip_size": 1024
+      "dashboard_clip_size": 1024,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4
     },
     "FLI1": {
       "wcs_scale_low": 1.55,
@@ -75,7 +79,9 @@
       "dashboard_min_threshold": 5,
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
-      "dashboard_clip_size": 1024
+      "dashboard_clip_size": 1024,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4
     },
     "FLI2": {
       "wcs_scale_low": 1.55,
@@ -97,7 +103,9 @@
       "dashboard_min_threshold": 5,
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
-      "dashboard_clip_size": 1024
+      "dashboard_clip_size": 1024,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4
     }
   },
   "environment_cards": [

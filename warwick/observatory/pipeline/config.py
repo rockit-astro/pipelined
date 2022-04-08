@@ -151,6 +151,14 @@ CONFIG_SCHEMA = {
                     },
                     'dashboard_clip_size': {
                         'type': 'integer'
+                    },
+                    'hfd_grid_tiles_x': {
+                        'type': 'integer',
+                        'minimum': 1
+                    },
+                    'hfd_grid_tiles_y': {
+                        'type': 'integer',
+                        'minimum': 1
                     }
                 }
             }

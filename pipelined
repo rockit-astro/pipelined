@@ -35,7 +35,7 @@ import threading
 import traceback
 from astropy.coordinates import Angle
 from astropy.io import fits
-import astropy.table
+from astropy.table import Table
 import astropy.units as u
 import numpy as np
 from PIL import Image, ImageOps
@@ -138,6 +138,7 @@ class PipelineDaemon:
 
         self._wcs_enabled = False
         self._hfd_enabled = False
+        self._hfd_grid_enabled = False
         self._intensity_stats_enabled = False
         self._dashboard_enabled = False
 
@@ -360,7 +361,7 @@ class PipelineDaemon:
             except OSError:
                 pass
 
-            astropy.table.Table(objects).write(table_path, format='fits')
+            objects.write(table_path, format='fits')
 
             wcs_path = '/var/tmp/' + camera_id + '-scratch.wcs'
             try:
@@ -434,46 +435,36 @@ class PipelineDaemon:
             bkg.subfrom(image)
 
             thresh = 5 * bkg.globalrms
-            raw_objects = sep.extract(image, thresh)
-            objects = []
-            for star in raw_objects:
-                # Discard spuriously small sources
-                if star['npix'] < config['object_minpix']:
-                    continue
+            objects = sep.extract(image, thresh)
 
-                x = np.array([star['x']])
-                y = np.array([star['y']])
-                a = np.array([star['a']])
-                b = np.array([star['b']])
+            kronrad, kron_flag = sep.kron_radius(image, objects['x'], objects['y'],
+                                                 objects['a'], objects['b'], objects['theta'], 6.0)
 
-                try:
-                    # TODO: Do this for all objects in parallel
-                    theta = np.array([star['theta']])
-                    kronrad, flag = sep.kron_radius(image, x, y, a, b, theta, 6.0)
-                    if flag != 0:
-                        continue
+            flux, _, flux_flag = sep.sum_ellipse(image, objects['x'], objects['y'], objects['a'], objects['b'],
+                                                 objects['theta'], 2.5 * kronrad, subpix=0)
 
-                    flux, _, flag = sep.sum_ellipse(image, x, y, a, b, theta, 2.5 * kronrad,
-                                                    subpix=0)
-                    if flag != 0:
-                        continue
+            r, radius_flag = sep.flux_radius(image, objects['x'], objects['y'],
+                                             6.0 * objects['a'], 0.5, normflux=flux, subpix=5)
 
-                    r, flag = sep.flux_radius(image, x, y, 6.0 * a, 0.5, normflux=flux, subpix=5)
-                    if flag != 0:
-                        continue
+            filt = np.logical_and.reduce([
+                objects['npix'] >= config['object_minpix'],
+                kron_flag == 0,
+                flux_flag == 0,
+                radius_flag == 0
+            ])
 
-                    objects.append((x.item(), y.item(), flux, 2 * r * platescale))
-                except Exception:
-                    # Ignore errors in individual objects
-                    pass
+            objects = Table(
+                [objects['x'][filt], objects['y'][filt], flux[filt], 2 * r[filt] * platescale],
+                names=('X', 'Y', 'FLUX', 'HFD'),
+                dtype=(float, float, float, float)
+            )
 
-            # TODO: Replace with Astropy table
-            dtype = [('X', float), ('Y', float), ('FLUX', float), ('HFD', float)]
-            return np.array(sorted(objects, key=lambda o: -o[2]), dtype=dtype)
+            objects.sort('FLUX', reverse=True)
+            return objects
         except Exception:
             print('failed to extract objects with error: ')
             traceback.print_exc(file=sys.stdout)
-            return np.zeros((0, 4))
+            return Table(names=('X', 'Y', 'FLUX', 'HFD'), dtype=(float, float, float, float))
 
     def __add_hfd_header(self, frame, objects):
         """Adds the median hfd to the frame header"""
@@ -530,6 +521,29 @@ class PipelineDaemon:
             for o in objects:
                 cr = 'image; circle({},{},{}) #select=0 color=red'.format(o[0] + 1, o[1] + 1, o[3] / platescale)
                 annotations.append(('regions', cr))
+
+        return annotations
+
+    def __generate_hfd_grid_annotations(self, camera_id, frame, objects):
+        """Returns the XPA commands to display the hfd grid overlay on the live previews"""
+        config = self._config.cameras[camera_id]
+        x_step = frame.header['NAXIS1'] / config['hfd_grid_tiles_x']
+        y_step = frame.header['NAXIS2'] / config['hfd_grid_tiles_y']
+
+        annotations = []
+        for j in range(config['hfd_grid_tiles_y']):
+            for i in range(config['hfd_grid_tiles_x']):
+                filt = np.logical_and.reduce([
+                    x_step * i < objects['X'],
+                    objects['X'] < x_step * (i + 1),
+                    y_step * j < objects['Y'],
+                    objects['Y'] < y_step * (j + 1)
+                ])
+
+                annotations.append(('regions', 'box({0:.6f},{1:.6f},{2},{3}) # color=yellow'.format(
+                    (i + 0.5) * x_step, (j + 0.5) * y_step, x_step, y_step)))
+                annotations.append(('regions', 'text {0:.6f} {1:.6f} # color=green text="{2:.2f}"'.format(
+                    (i + 0.5) * x_step, (j + 0.5) * y_step, np.median(objects['HFD'][filt]))))
 
         return annotations
 
@@ -628,7 +642,7 @@ class PipelineDaemon:
                         steps.append('intstats')
 
                     objects = None
-                    if self._hfd_enabled or self._wcs_enabled:
+                    if self._hfd_enabled or self._hfd_grid_enabled or self._wcs_enabled:
                         objects = self.__detect_objects(camera_id, frame)
                         steps.append('objdetect')
 
@@ -644,6 +658,11 @@ class PipelineDaemon:
                         wcs = self.__add_wcs_header(frame, camera_id, objects)
                         self._preview_data.put((camera_id, frame, wcs))
                         steps.append('wcs')
+
+                    if self._hfd_grid_enabled:
+                        grid = self.__generate_hfd_grid_annotations(camera_id, frame, objects)
+                        self._preview_data.put((camera_id, frame, grid))
+                        steps.append('hfd_grid')
 
                     if self._output_save_to_disk[camera_id]:
                         tmpname = self._output_frame_prefix + '-' + camera_id + '-' + \
@@ -830,6 +849,20 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
+    def set_hfd_grid(self, enabled):
+        """Enable or disable half-flux diameter grid calculations"""
+        if not pyro_client_matches(self._config.control_ips):
+            return CommandStatus.InvalidControlIP
+
+        with TryLock(self._command_lock) as success:
+            if not success:
+                return CommandStatus.Blocked
+
+            self._hfd_grid_enabled = enabled
+            log.info(self._config.log_name, 'HFD grid calculation ' + ('enabled' if enabled else 'disabled'))
+            return CommandStatus.Succeeded
+
+    @Pyro4.expose
     def set_intensity_stats(self, enabled):
         """Enable or disable intensity statistics solutions"""
         if not pyro_client_matches(self._config.control_ips):
@@ -934,6 +967,7 @@ class PipelineDaemon:
 
             'wcs_enabled': self._wcs_enabled,
             'hfd_enabled': self._hfd_enabled,
+            'hfd_grid_enabled': self._hfd_grid_enabled,
             'intensity_stats_enabled': self._intensity_stats_enabled,
             'dashboard_enabled': self._dashboard_enabled,
 

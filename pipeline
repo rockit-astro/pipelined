@@ -104,6 +104,9 @@ def print_status(config, _):
     hfd = TFmt.Green + 'ENABLED' if data['hfd_enabled'] else TFmt.Red + 'DISABLED'
     print('   HFD calculation is ' + TFmt.Bold + hfd + TFmt.Clear)
 
+    hfd_grid = TFmt.Green + 'ENABLED' if data['hfd_grid_enabled'] else TFmt.Red + 'DISABLED'
+    print('   HFD grid calculation is ' + TFmt.Bold + hfd_grid + TFmt.Clear)
+
     intstats = TFmt.Green + 'ENABLED' if data['intensity_stats_enabled'] else TFmt.Red + 'DISABLED'
     print('   Intensity statistics are ' + TFmt.Bold + intstats + TFmt.Clear)
 
@@ -194,6 +197,16 @@ def set_hfd(config, args):
     return -1
 
 
+def set_hfd_grid(config, args):
+    """Enable or disable half-flux diameter grid calculation for acquired frames"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with config.daemon.connect() as pipeline:
+            return pipeline.set_hfd_grid(args[0] == 'enable')
+
+    print('usage: {} hfdgrid (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+
 def set_intensity_stats(config, args):
     """Enable or disable intensity statistics for acquired frames"""
     if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
@@ -265,6 +278,7 @@ def print_usage():
     print('reduction flags:')
     print('   wcs          enable or disable WCS solutions')
     print('   hfd          enable or disable half-flux diameter calculations')
+    print('   hfdgrid      enable or disable half-flux diameter grid calculations')
     print('   intstats     enable or disable intensity statistics')
     print('   dashboard    enable or disable dashboard preview updates')
     print()
@@ -282,6 +296,7 @@ if __name__ == '__main__':
         'type': set_type,
         'wcs': set_wcs,
         'hfd': set_hfd,
+        'hfdgrid': set_hfd_grid,
         'intstats': set_intensity_stats,
         'dashboard': dashboard,
         'list-cameras': list_cameras

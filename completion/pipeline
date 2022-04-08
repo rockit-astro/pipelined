@@ -5,7 +5,7 @@ _pipeline()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="status preview archive dir prefix object type wcs hfd intstats dashboard"
+    opts="status preview archive dir prefix object type wcs hfd hfdgrid intstats dashboard"
     case "${prev}" in
         preview|archive)
             opts=$(power list-switches)
