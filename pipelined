@@ -36,6 +36,7 @@ import traceback
 from astropy.coordinates import Angle
 from astropy.io import fits
 from astropy.table import Table
+from astropy.time import Time
 import astropy.units as u
 import numpy as np
 from PIL import Image, ImageOps
@@ -140,7 +141,7 @@ class PipelineDaemon:
         self._hfd_enabled = False
         self._hfd_grid_enabled = False
         self._intensity_stats_enabled = False
-        self._dashboard_enabled = False
+        self._dashboard_enabled = True
 
         # Information for building the output filename
         self._output_directory = config.data_root_path
@@ -151,9 +152,11 @@ class PipelineDaemon:
 
         self._output_save_to_disk = {}
         self._ds9_preview_addresses = {}
+        self._last_dashboard_update = {}
         for cam in config.cameras:
             self._output_save_to_disk[cam] = False
             self._ds9_preview_addresses[cam] = []
+            self._last_dashboard_update[cam] = Time.now() - config.cameras[cam]['dashboard_max_cadence'] * u.s
 
     def __process_guide_frames(self):
         """Calculates image shifts between frames and offsets telescope to compensate"""
@@ -550,6 +553,11 @@ class PipelineDaemon:
     def __update_dashboard(self, camera_id, frame):
         try:
             config = self._config.cameras[camera_id]
+
+            if (Time.now() - self._last_dashboard_update[camera_id]).to_value(u.s) < config['dashboard_max_cadence']:
+                return
+
+            self._last_dashboard_update[camera_id] = Time.now()
 
             # Trim overscan regions
             data = frame.data

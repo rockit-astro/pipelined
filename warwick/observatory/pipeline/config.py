@@ -152,6 +152,10 @@ CONFIG_SCHEMA = {
                     'dashboard_clip_size': {
                         'type': 'integer'
                     },
+                    'dashboard_max_cadence': {
+                        'type': 'number',
+                        'minimum': 0
+                    },
                     'hfd_grid_tiles_x': {
                         'type': 'integer',
                         'minimum': 1

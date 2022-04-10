@@ -32,6 +32,7 @@
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
       "dashboard_clip_size": 1024,
+      "dashboard_max_cadence": 30,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4
     },
@@ -56,6 +57,7 @@
       "dashboard_max_threshold": 95,
       "dashboard_thumb_size": 1024,
       "dashboard_clip_size": 1024,
+      "dashboard_max_cadence": 30,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4
     },
