@@ -184,11 +184,14 @@ CONFIG_SCHEMA = {
                         'type': 'string',
                         'maxLength': 68
                     },
+                    'camera': {
+                        'type': 'string'
+                    },
                     'sensor': {
-                        'type': 'string',
+                        'type': 'string'
                     },
                     'parameter': {
-                        'type': 'string',
+                        'type': 'string'
                     },
                     'type': {
                         'type': 'string',
@@ -216,6 +219,9 @@ CONFIG_SCHEMA = {
                     'comment': {
                         'type': 'string',
                         'maxLength': 68
+                    },
+                    'camera': {
+                        'type': 'string'
                     },
                     'daemon': {
                         'type': 'string',

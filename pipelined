@@ -264,7 +264,7 @@ class PipelineDaemon:
         frame.header.set('BSCALE', frame.header['BSCALE'], after='NAXIS2')
         frame.header.set('BZERO', frame.header['BZERO'], after='BSCALE')
 
-    def __add_telescope_header(self, frame):
+    def __add_telescope_header(self, camera_id, frame):
         """Queries the telescope status and adds the appropriate header keys to the frame"""
         desc = fits.Card('COMMENT', ' ---          TELESCOPE INFORMATION          --- ')
         frame.header.append(fits.Card(None, None), end=True)
@@ -275,6 +275,9 @@ class PipelineDaemon:
         for config in self._config.telescope_cards:
             key = config['daemon'].uri + '_' + config['method']
             if key in data:
+                continue
+
+            if 'camera' in config and config['camera'] != camera_id:
                 continue
 
             try:
@@ -288,6 +291,9 @@ class PipelineDaemon:
 
         # Build cards
         for config in self._config.telescope_cards:
+            if 'camera' in config and config['camera'] != camera_id:
+                continue
+
             key = config['daemon'].uri + '_' + config['method']
             value = data.get(key, {}).get(config['parameter'], None)
             if value is not None:
@@ -296,7 +302,7 @@ class PipelineDaemon:
             else:
                 frame.header.append(fits.Card('COMMENT', ' ' + config['key'] + ' not available', ''), end=True)
 
-    def __add_environment_header(self, frame):
+    def __add_environment_header(self, camera_id, frame):
         """Queries the environment status and adds the appropriate header keys to the frame"""
         desc = fits.Card('COMMENT', ' ---         ENVIRONMENT INFORMATION         --- ')
         frame.header.append(fits.Card(None, None), end=True)
@@ -312,6 +318,9 @@ class PipelineDaemon:
             log.error(self._config.log_name, 'Failed to query environment metadata (' + str(e) + ')')
 
         for config in self._config.environment_cards:
+            if 'camera' in config and config['camera'] != camera_id:
+                continue
+
             sensor_data = data.get(config['sensor'], {}).get('parameters', {}).get(config['parameter'], {})
             if sensor_data and sensor_data.get('current', False):
                 frame.header.append(create_formatted_card(config['key'], sensor_data['latest'],
@@ -343,6 +352,8 @@ class PipelineDaemon:
             if self._frame_type == 'SCIENCE':
                 frame.header.append(fits.Card('OBJECT', self._frame_object,
                                               'science target name'), end=True)
+            else:
+                frame.header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
         except Exception:
             print('failed to add pipeline header with error: ')
@@ -642,8 +653,8 @@ class PipelineDaemon:
                             date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
 
                     self.__move_bscale_bzero(frame)
-                    self.__add_telescope_header(frame)
-                    self.__add_environment_header(frame)
+                    self.__add_telescope_header(camera_id, frame)
+                    self.__add_environment_header(camera_id, frame)
                     self.__add_pipeline_header(camera_id, frame, filename)
 
                     if self._intensity_stats_enabled:
