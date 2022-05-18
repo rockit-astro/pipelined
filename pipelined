@@ -53,6 +53,16 @@ SOFTWARE_VERSION = 'UNKNOWN'
 ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
 
+def window_header_region(frame, keyword):
+    """Returns a cropped view of frame data"""
+    if keyword not in frame.header:
+        return frame.data
+
+    region = frame.header[keyword]
+    r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', region).groups()
+    return frame.data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
+
+
 def rescale_image_data(data, clip_low, clip_high):
     """ Returns a normalised array where clip_low percent of the pixels are 0 and
         clip_high percent of the pixels are 255
@@ -172,19 +182,17 @@ class PipelineDaemon:
 
             # Background-subtract and collapse into x/y profiles
             with fits.open(frame_path) as frame:
-                frame_data = frame[0].data
-                if config['image_region_card']:
-                    image_region = frame[0].header[config['image_region_card']]
-                    r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', image_region).groups()
-                    frame_data = frame_data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
+                if 'image_region_card' in config:
+                    data = window_header_region(frame[0], config['image_region_card']).astype(float)
+                else:
+                    data = frame[0].data.astype(float)
 
-                frame_data = frame_data.astype(float)
-                background = sep.Background(frame_data)
-                background.subfrom(frame_data)
+                background = sep.Background(data)
+                background.subfrom(data)
 
                 # Pyro doesn't support numpy arrays, so convert to a built-in type
-                profile_x = array.array('f', np.mean(frame_data, axis=0))
-                profile_y = array.array('f', np.mean(frame_data, axis=1))
+                profile_x = array.array('f', np.mean(data, axis=0))
+                profile_y = array.array('f', np.mean(data, axis=1))
 
             # Notify opsd
             try:
@@ -336,28 +344,33 @@ class PipelineDaemon:
         frame.header.append(fits.Card(None, None), end=True)
         frame.header.append(desc, end=True)
 
-        try:
-            frame.header.append(fits.Card('DPSWVER', SOFTWARE_VERSION,
-                                          'data pipeline software version'), end=True)
-            frame.header.append(fits.Card('FILESAVE', self._output_save_to_disk[camera_id],
-                                          'image has been archived to disk'), end=True)
+        frame.header.append(fits.Card('DPSWVER', SOFTWARE_VERSION,
+                                      'data pipeline software version'), end=True)
+        frame.header.append(fits.Card('FILESAVE', self._output_save_to_disk[camera_id],
+                                      'image has been archived to disk'), end=True)
 
-            if self._output_save_to_disk[camera_id]:
-                frame.header.append(fits.Card('FILENAME', filename, 'archived image name'), end=True)
-            else:
-                frame.header.append(fits.Card('COMMENT', ' FILENAME not available', ''))
+        if self._output_save_to_disk[camera_id]:
+            frame.header.append(fits.Card('FILENAME', filename, 'archived image name'), end=True)
+        else:
+            frame.header.append(fits.Card('COMMENT', ' FILENAME not available', ''))
 
-            frame.header.append(fits.Card('IMAGETYP', self._frame_type, 'frame type'), end=True)
+        frame.header.append(fits.Card('IMAGETYP', self._frame_type, 'frame type'), end=True)
 
-            if self._frame_type == 'SCIENCE':
-                frame.header.append(fits.Card('OBJECT', self._frame_object,
-                                              'science target name'), end=True)
-            else:
-                frame.header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
+        if self._frame_type == 'SCIENCE':
+            frame.header.append(fits.Card('OBJECT', self._frame_object,
+                                          'science target name'), end=True)
+        else:
+            frame.header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
-        except Exception:
-            print('failed to add pipeline header with error: ')
-            traceback.print_exc(file=sys.stdout)
+        config = self._config.cameras[camera_id]
+        if 'overscan_region_card' in config and config['overscan_region_card'] in frame.header:
+            bias = window_header_region(frame, config['overscan_region_card'])
+            frame.header.append(create_float_card('MEANBIAS', np.mean(bias),
+                                                  '[adu] mean overscan bias counts', 2), end=True)
+            frame.header.append(create_float_card('MEDBIAS', np.median(bias),
+                                                  '[adu] median overscan bias counts', 2), end=True)
+            frame.header.append(create_float_card('STDBIAS', np.std(bias),
+                                                  '[adu] overscan bias standard deviation', 2), end=True)
 
     def __add_wcs_header(self, frame, camera_id, objects):
         """Solves frame WCS and adds the appropriate header keys to the frame.
@@ -494,15 +507,21 @@ class PipelineDaemon:
             print('failed to calculate HFD with error:')
             traceback.print_exc(file=sys.stdout)
 
-    def __add_intensity_stats_header(self, frame):
+    def __add_intensity_stats_header(self, camera_id, frame):
         """Adds the frame intensity to the frame header"""
         try:
-            frame.header.append(create_float_card('MEANCNTS', np.mean(frame.data),
-                                                  'mean frame counts', 2), end=True)
-            frame.header.append(create_float_card('MEDCNTS', np.median(frame.data),
-                                                  'median frame counts', 2), end=True)
-            frame.header.append(create_float_card('STDCNTS', np.std(frame.data),
-                                                  'standard deviation of frame counts', 2), end=True)
+            config = self._config.cameras[camera_id]
+            if 'image_region_card' in config:
+                data = window_header_region(frame, config['image_region_card'])
+            else:
+                data = frame.data
+
+            frame.header.append(create_float_card('MEANCNTS', np.mean(data),
+                                                  '[adu] mean frame counts', 2), end=True)
+            frame.header.append(create_float_card('MEDCNTS', np.median(data),
+                                                  '[adu] median frame counts', 2), end=True)
+            frame.header.append(create_float_card('STDCNTS', np.std(data),
+                                                  '[adu] frame counts standard deviation', 2), end=True)
         except Exception:
             print('failed to calculate intensity stats with error: ')
             traceback.print_exc(file=sys.stdout)
@@ -528,7 +547,6 @@ class PipelineDaemon:
                 4 * width / 5, -config['preview_ds9_annotation_margin'],
                 'HFD: ' + str(frame.header['MEDHFD']) + ' arcsec')
             annotations.append(('regions', hfd_label))
-
 
         platescale = config['platescale']
         if objects is not None and len(objects) > 0:
@@ -571,11 +589,10 @@ class PipelineDaemon:
             self._last_dashboard_update[camera_id] = Time.now()
 
             # Trim overscan regions
-            data = frame.data
-            if config['image_region_card']:
-                image_region = frame.header[config['image_region_card']]
-                r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', image_region).groups()
-                data = data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
+            if 'image_region_card' in config:
+                data = window_header_region(frame, config['image_region_card'])
+            else:
+                data = frame.data
 
             size = np.shape(data)
             metadata = {
@@ -658,7 +675,7 @@ class PipelineDaemon:
                     self.__add_pipeline_header(camera_id, frame, filename)
 
                     if self._intensity_stats_enabled:
-                        self.__add_intensity_stats_header(frame)
+                        self.__add_intensity_stats_header(camera_id, frame)
                         steps.append('intstats')
 
                     objects = None

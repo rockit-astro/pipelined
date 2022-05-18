@@ -39,7 +39,8 @@ The configuration options are:
       "wcs_search_dec_card": "TELDEC", # (optional) Header card (from telescope_cards below) with the estimated telescope Dec.
       "wcs_search_radius": 1.75, # (optional) Maximum search radius (in degrees) around the search ra/dec.
       "ccd_bin_card": "CCD-XBIN", # (optional) Header card (from the camera daemon) to multiply with platescale.
-      "image_region_card": "IMAG-RGN", # Header card (from the camera daemon) to crop out overscan before doing source detection.
+      "image_region_card": "IMAG-RGN", # (optional) Header card (from the camera daemon) to crop frame before source detection or intensity statistics.
+      "overscan_region_card": "BIAS-RGN", # (optional) Header card (from the camera daemon) to measure overscan bias level to subtract from intensity statistics.
       "platescale": 0.391, # Image platescale used to convert px HFDs to arcsec.
       "object_minpix": 16, # Minimum object pixel count for source detection.
       "preview_ds9_width": 512, # Default ds9 window width for pipeline preview windows.
