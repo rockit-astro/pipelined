@@ -464,6 +464,9 @@ class PipelineDaemon:
             thresh = 5 * bkg.globalrms
             objects = sep.extract(image, thresh)
 
+            # Work around sep issue #110
+            objects['theta'][objects['theta'] > np.pi / 2] -= np.pi / 2
+
             kronrad, kron_flag = sep.kron_radius(image, objects['x'], objects['y'],
                                                  objects['a'], objects['b'], objects['theta'], 6.0)
 
