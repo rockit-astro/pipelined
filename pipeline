@@ -101,6 +101,9 @@ def print_status(config, _):
     wcs = TFmt.Green + 'ENABLED' if data['wcs_enabled'] else TFmt.Red + 'DISABLED'
     print('   WCS solutions are ' + TFmt.Bold + wcs + TFmt.Clear)
 
+    rotation = TFmt.Green + 'ENABLED' if data['rotation_enabled'] else TFmt.Red + 'DISABLED'
+    print('   Field rotation calculation is ' + TFmt.Bold + rotation + TFmt.Clear)
+
     hfd = TFmt.Green + 'ENABLED' if data['hfd_enabled'] else TFmt.Red + 'DISABLED'
     print('   HFD calculation is ' + TFmt.Bold + hfd + TFmt.Clear)
 
@@ -184,6 +187,16 @@ def set_wcs(config, args):
             return pipeline.set_wcs(args[0] == 'enable')
 
     print('usage: {} wcs (enable|disable)'.format(SCRIPT_NAME))
+    return -1
+
+
+def set_rotation(config, args):
+    """Enable or disable field rotation calculation for acquired frames"""
+    if len(args) == 1 and (args[0] == 'enable' or args[0] == 'disable'):
+        with config.daemon.connect() as pipeline:
+            return pipeline.set_rotation(args[0] == 'enable')
+
+    print('usage: {} rotation (enable|disable)'.format(SCRIPT_NAME))
     return -1
 
 
@@ -277,8 +290,9 @@ def print_usage():
     print('   type         set metadata frame type')
     print('reduction flags:')
     print('   wcs          enable or disable WCS solutions')
+    print('   rotation     enable or disable field rotation preview')
     print('   hfd          enable or disable half-flux diameter calculations')
-    print('   hfdgrid      enable or disable half-flux diameter grid calculations')
+    print('   hfdgrid      enable or disable half-flux diameter grid preview')
     print('   intstats     enable or disable intensity statistics')
     print('   dashboard    enable or disable dashboard preview updates')
     print()
@@ -295,6 +309,7 @@ if __name__ == '__main__':
         'object': set_object,
         'type': set_type,
         'wcs': set_wcs,
+        'rotation': set_rotation,
         'hfd': set_hfd,
         'hfdgrid': set_hfd_grid,
         'intstats': set_intensity_stats,

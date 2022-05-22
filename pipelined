@@ -38,6 +38,7 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time
 import astropy.units as u
+from astropy.wcs import WCS
 import numpy as np
 from PIL import Image, ImageOps
 import pyds9
@@ -148,6 +149,7 @@ class PipelineDaemon:
         preview_thread.start()
 
         self._wcs_enabled = False
+        self._rotation_enabled = False
         self._hfd_enabled = False
         self._hfd_grid_enabled = False
         self._intensity_stats_enabled = False
@@ -436,11 +438,21 @@ class PipelineDaemon:
                         wcs_data += key + ' = ' + value + '\n'
 
                         frame.header.append(fits.Card(card.keyword, card.value, comment), end=True)
-            return [
+            annotations = [
                 ('wcs replace', wcs_data),
                 ('regions', ANNOTATION_LABEL.format(width / 5, -config['preview_ds9_annotation_margin'],
                                                     'WCS: SOLVED'))
             ]
+
+            if self._rotation_enabled:
+                wcs = WCS(frame.header)
+                coords = wcs.all_pix2world([width // 2, width // 2], [height // 2, height // 2 + 1], 0)
+                north_angle = np.degrees(np.arctan2(np.diff(coords[1]), np.diff(coords[0]))).item()
+                annotations.append(('regions', ANNOTATION_LABEL.format(
+                    width / 5, -2 * config['preview_ds9_annotation_margin'],
+                    'ROT: North is {:.1f} deg CCW of +X'.format(north_angle))))
+
+            return annotations
         except Exception as e:
             print('failed to update wcs with error: ' + str(e))
             return [('regions', ANNOTATION_LABEL.format(width / 4, -config['preview_ds9_annotation_margin'],
@@ -682,7 +694,7 @@ class PipelineDaemon:
                         steps.append('intstats')
 
                     objects = None
-                    if self._hfd_enabled or self._hfd_grid_enabled or self._wcs_enabled:
+                    if self._hfd_enabled or self._hfd_grid_enabled or self._wcs_enabled or self._rotation_enabled:
                         objects = self.__detect_objects(camera_id, frame)
                         steps.append('objdetect')
 
@@ -694,10 +706,12 @@ class PipelineDaemon:
                     annotations = self.__generate_header_annotations(camera_id, frame, objects)
                     self._preview_data.put((camera_id, frame, annotations))
 
-                    if self._wcs_enabled:
+                    if self._wcs_enabled or self._rotation_enabled:
                         wcs = self.__add_wcs_header(frame, camera_id, objects)
                         self._preview_data.put((camera_id, frame, wcs))
                         steps.append('wcs')
+                        if self._rotation_enabled:
+                            steps.append('rotation')
 
                     if self._hfd_grid_enabled:
                         grid = self.__generate_hfd_grid_annotations(camera_id, frame, objects)
@@ -875,6 +889,20 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
+    def set_rotation(self, enabled):
+        """Enable or disable field rotation calculation"""
+        if not pyro_client_matches(self._config.control_ips):
+            return CommandStatus.InvalidControlIP
+
+        with TryLock(self._command_lock) as success:
+            if not success:
+                return CommandStatus.Blocked
+
+            self._rotation_enabled = enabled
+            log.info(self._config.log_name, 'Field rotation calculation ' + ('enabled' if enabled else 'disabled'))
+            return CommandStatus.Succeeded
+
+    @Pyro4.expose
     def set_hfd(self, enabled):
         """Enable or disable half-flux diameter calculations"""
         if not pyro_client_matches(self._config.control_ips):
@@ -1006,6 +1034,7 @@ class PipelineDaemon:
             'guide_camera_id': self._guide_camera_id,
 
             'wcs_enabled': self._wcs_enabled,
+            'rotation_enabled': self._rotation_enabled,
             'hfd_enabled': self._hfd_enabled,
             'hfd_grid_enabled': self._hfd_grid_enabled,
             'intensity_stats_enabled': self._intensity_stats_enabled,
