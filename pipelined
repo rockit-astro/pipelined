@@ -19,6 +19,9 @@
 
 # pylint: disable=no-self-use
 # pylint: disable=too-many-branches
+# pylint: disable=too-many-lines
+# pylint: disable=too-many-nested-blocks
+# pylint: disable=too-many-boolean-expressions
 
 import argparse
 import array
@@ -611,12 +614,12 @@ class PipelineDaemon:
 
             size = np.shape(data)
             metadata = {
-               'date': frame.header['DATE-OBS'],
-               'exptime': frame.header['EXPTIME'],
-               'saved': frame.header['FILESAVE'],
-               'filename': frame.header['FILENAME'] if 'FILENAME' in frame.header else '',
-               'size': [size[1], size[0]],
-               'clipsize': config['dashboard_clip_size'],
+                'date': frame.header['DATE-OBS'],
+                'exptime': frame.header['EXPTIME'],
+                'saved': frame.header['FILESAVE'],
+                'filename': frame.header['FILENAME'] if 'FILENAME' in frame.header else '',
+                'size': [size[1], size[0]],
+                'clipsize': config['dashboard_clip_size'],
             }
 
             scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])

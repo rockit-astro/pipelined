@@ -8,9 +8,9 @@ _pipeline()
     opts="status preview archive dir prefix object type wcs rotation hfd hfdgrid intstats dashboard"
     case "${prev}" in
         preview|archive)
-            opts=$(power list-switches)
+            opts=$(pipeline list-cameras)
             ;;
-        wcs|rotation|hfd|intstats)
+        wcs|rotation|hfd|hfdgrid|intstats)
             opts="enable disable"
             ;;
         dashboard)

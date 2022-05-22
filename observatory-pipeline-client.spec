@@ -1,5 +1,5 @@
 Name:      observatory-pipeline-client
-Version:   20220408
+Version:   20220522
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Pipeline client for the Warwick La Palma telescopes.

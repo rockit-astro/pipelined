@@ -2,6 +2,9 @@
 ignored-modules = astropy.units
 disable = broad-except, too-few-public-methods, missing-docstring, invalid-name
 
+[MASTER]
+extension-pkg-whitelist = sep
+
 [SIMILARITIES]
 min-similarity-lines = 25
 ignore-imports = yes
