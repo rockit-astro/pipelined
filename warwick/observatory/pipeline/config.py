@@ -85,11 +85,12 @@ CONFIG_SCHEMA = {
                 'required': [
                     'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
                     'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
-                    'platescale', 'image_region_card', 'overscan_region_card', 'object_minpix',
+                    'platescale', 'image_region_card', 'object_minpix',
                     'preview_ds9_width', 'preview_ds9_height', 'preview_ds9_zoom', 'preview_ds9_annotation_margin',
                     'dashboard_flip_vertical', 'dashboard_flip_horizontal',
                     'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
-                    # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius, ccd_bin_card are optional
+                    # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
+                    #       overscan_region_card, ccd_bin_card are optional
                 ],
                 'properties': {
                     'wcs_scale_high': {
