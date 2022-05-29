@@ -333,6 +333,78 @@
       "daemon": "superwasp_telescope",
       "method": "report_status",
       "parameter": "sun_separation"
+    },
+    {
+      "key": "LENSTEMP",
+      "comment": "[deg c] lens temperature",
+      "camera": "1",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "temp_1",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSSET",
+      "comment": "[deg c] lens temperature set point",
+      "camera": "1",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "set_1",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSTEMP",
+      "comment": "[deg c] lens temperature",
+      "camera": "2",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "temp_2",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSSET",
+      "comment": "[deg c] lens temperature set point",
+      "camera": "2",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "set_2",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSTEMP",
+      "comment": "[deg c] lens temperature",
+      "camera": "3",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "temp_3",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSSET",
+      "comment": "[deg c] lens temperature set point",
+      "camera": "3",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "set_3",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSTEMP",
+      "comment": "[deg c] lens temperature",
+      "camera": "4",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "temp_4",
+      "type": "float1dp"
+    },
+    {
+      "key": "LENSSET",
+      "comment": "[deg c] lens temperature set point",
+      "camera": "4",
+      "daemon": "superwasp_lensheater",
+      "method": "report_status",
+      "parameter": "set_4",
+      "type": "float1dp"
     }
   ]
 }
