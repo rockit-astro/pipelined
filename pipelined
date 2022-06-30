@@ -31,6 +31,7 @@ import os
 import queue
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -166,11 +167,11 @@ class PipelineDaemon:
         self._frame_type = 'JUNK'
 
         self._output_save_to_disk = {}
-        self._ds9_preview_addresses = {}
+        self._ds9_preview_ports = {}
         self._last_dashboard_update = {}
         for cam in config.cameras:
             self._output_save_to_disk[cam] = False
-            self._ds9_preview_addresses[cam] = []
+            self._ds9_preview_ports[cam] = []
             self._last_dashboard_update[cam] = Time.now() - config.cameras[cam]['dashboard_max_cadence'] * u.s
 
     def __process_guide_frames(self):
@@ -250,9 +251,9 @@ class PipelineDaemon:
                 pass
 
             try:
-                for address in self._ds9_preview_addresses[camera_id][:]:
+                for port in self._ds9_preview_ports[camera_id][:]:
                     try:
-                        p = pyds9.DS9(address, start=False, wait=1)
+                        p = pyds9.DS9('7f000001:' + str(port), start=False, wait=1)
                         if frame is not None and frame != last_frame:
                             p.set_pyfits(fits.HDUList(frame))
                             last_frame = frame
@@ -265,8 +266,17 @@ class PipelineDaemon:
                                     p.set(message)
                     except Exception as e:
                         if unregister_on_error:
-                            self._ds9_preview_addresses[camera_id].remove(address)
-                            print('{}: unregistering preview {}: {}'.format(camera_id, address, e))
+                            socket_path = '/tmp/pipelined-' + str(port)
+                            if os.path.exists(socket_path):
+                                subprocess.check_call([
+                                    'ssh',
+                                    '-S', socket_path,
+                                    '-O', 'exit',
+                                    'localhost'
+                                ])
+
+                            self._ds9_preview_ports[camera_id].remove(port)
+                            print('{}: unregistering preview {}: {}'.format(camera_id, port, e))
             except Exception:
                 print('unexpected exception when processing ' + camera_id + ' preview')
                 traceback.print_exc(file=sys.stdout)
@@ -829,13 +839,16 @@ class PipelineDaemon:
             if not success:
                 return CommandStatus.Blocked
 
+            if camera_id not in self._config.cameras:
+                return CommandStatus.UnknownCameraID
+
             self._output_save_to_disk[camera_id] = enabled
             log.info(self._config.log_name, 'Frame archiving for ' + camera_id +
                      (' enabled' if enabled else ' disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
-    def register_preview(self, camera_id, address):
+    def register_preview(self, camera_id, port):
         """Register a ds9 window for previews"""
         if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
@@ -844,7 +857,42 @@ class PipelineDaemon:
             if not success:
                 return CommandStatus.Blocked
 
-            self._ds9_preview_addresses[camera_id].append(address)
+            if camera_id not in self._config.cameras:
+                return CommandStatus.UnknownCameraID
+
+            client_ip = Pyro4.current_context.client.sock.getpeername()[0]
+            if client_ip != self._config.daemon.host:
+                try:
+                    # pyds9 will fail unless the local and remote ports are the same, so we need
+                    # the same port to be free on both client and server.
+                    # This check may race against another process stealing the port, but this
+                    # should be rare enough that the user can just run the preview command again.
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        if s.connect_ex(('localhost', port)) == 0:
+                            return CommandStatus.TunnelPortInUse
+
+                    # Create a ssh tunnel using multiplexing to simplify closing it later
+                    # Inspired by https://stackoverflow.com/questions/4364355/how-to-open-an-ssh-tunnel-using-python
+                    # This requires key-based ssh access has been configured from the server to the calling client!
+                    socket_path = '/tmp/pipelined-' + str(port)
+                    subprocess.check_call([
+                        'ssh', '-MfN',
+                        '-S', socket_path,
+                        '-L', '{0}:127.0.0.1:{0}'.format(port),
+                        '-o', 'ExitOnForwardFailure=yes',
+                        client_ip
+                    ])
+
+                    subprocess.check_call([
+                        'ssh',
+                        '-S', socket_path,
+                        '-O', 'check',
+                        'localhost'
+                    ])
+                except Exception:
+                    return CommandStatus.TunnelCreationFailed
+
+            self._ds9_preview_ports[camera_id].append(port)
             return CommandStatus.Succeeded
 
     @Pyro4.expose

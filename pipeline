@@ -248,12 +248,7 @@ def register_preview(config, args):
                 break
 
         ds9 = pyds9.DS9(name, wait=10)
-        address = ds9.access().split(' ')[-1]
-
-        # Register access for pipelined to update the preview
-        command = ['xpaset', '-p', name, '-acl', config.daemon.host, '+']
-        subprocess.check_call(command, timeout=5)
-
+        port = int(ds9.access().split(':')[-1])
 
         ds9.set('view filename no')
         ds9.set('view physical no')
@@ -272,7 +267,10 @@ def register_preview(config, args):
         return -1
 
     with config.daemon.connect() as pipeline:
-        return pipeline.register_preview(camera_id, address)
+        # Note: If the server is running on a different machine a ssh tunnel will be created
+        # back to this client machine. This requires that key-based ssh has been configured
+        # from the server machine to this client machine.
+        return pipeline.register_preview(camera_id, port)
 
 
 def print_usage():

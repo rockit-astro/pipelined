@@ -26,17 +26,23 @@ class CommandStatus:
     Failed = 1
     Blocked = 2
     InvalidControlIP = 10
+    UnknownCameraID = 11
     ReferenceFrameError = 31
     DirectoryNotWritable = 50
     NewDirectoryFailed = 51
+    TunnelCreationFailed = 60
+    TunnelPortInUse = 61
 
     _messages = {
         # General error codes
         1: 'error: command failed',
         2: 'error: another command is already running',
         10: 'error: command not accepted from this IP',
+        11: 'error: unknown camera id',
         50: 'error: directory doesn\'t exist or isn\'t writable',
         51: 'error: failed to create night directory (already exists?)',
+        60: 'error: failed to create ssh tunnel for remote preview',
+        61: 'error: ssh tunnel port for remote preview already in use',
 
         -101: 'error: unable to communicate with pipeline daemon',
     }

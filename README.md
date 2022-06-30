@@ -123,10 +123,7 @@ Edit `/etc/fstab` and add
 ```
 then reboot.
 
-If you want to run ds9 previews from *another* machine (e.g. `onemetre-dome`) then you will need to open up the firewall on that machine to accept connections from `pipelined`.  The simplest way to allow this, for now, is to whitelist all ports using:
-```
-firewall-cmd --zone=public --add-rich-rule='rule family="ipv4" source address="<pipelined host ip>" accept' --permanent
-```
+If you want to run ds9 previews from *another* machine (e.g. `onemetre-dome`) then you will need to make sure that the machine running the server can connect to the client machine over ssh (to establish a tunnel) without requiring manual input. Set up login keys and host config as needed.
 
 The SuperWASP TCS should export a data partition for the camera pis to write to.
 
