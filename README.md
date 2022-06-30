@@ -162,7 +162,7 @@ sudo systemctl start pipelined@<config>
 
 ### Testing Locally
 
-The camera server and client can be run directly from a git clone:
+The pipeline server and client can be run directly from a git clone:
 ```
 ./pipelined test.json
 PIPELINED_CONFIG_PATH=./test.json ./pipeline status
