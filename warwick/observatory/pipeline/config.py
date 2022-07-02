@@ -24,7 +24,7 @@ CONFIG_SCHEMA = {
     'additionalProperties': False,
     'required': [
         'daemon', 'environment_daemon', 'environment_query_timeout', 'telescope_query_timeout', 'ops_daemon',
-        'log_name', 'control_machines', 'notify_frame_machines', 'incoming_data_path', 'data_root_path', 'dashboard_output_path',
+        'log_name', 'control_machines', 'notify_frame_machines', 'guiding_min_interval',
         'cameras', 'environment_cards', 'telescope_cards'
     ],
     'properties': {
@@ -65,17 +65,9 @@ CONFIG_SCHEMA = {
                 'machine_name': True
             }
         },
-        'incoming_data_path': {
-            'type': 'string',
-            'directory_path': True
-        },
-        'data_root_path': {
-            'type': 'string',
-            'directory_path': True
-        },
-        'dashboard_output_path': {
-            'type': 'string',
-            'directory_path': True
+        'guiding_min_interval': {
+            'type': 'number',
+            'minimum': 0,
         },
         'cameras': {
             'type': 'object',
@@ -83,16 +75,43 @@ CONFIG_SCHEMA = {
                 'type': 'object',
                 'additionalProperties': False,
                 'required': [
+                    'worker_daemon', 'worker_processes',
+                    'input_data_path', 'output_data_path',
+                    'dashboard_output_path', 'dashboard_prefix',
                     'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
                     'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
                     'platescale', 'image_region_card', 'object_minpix',
-                    'preview_ds9_width', 'preview_ds9_height', 'preview_ds9_zoom', 'preview_ds9_annotation_margin',
+                    'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
+                    'preview_ds9_zoom', 'preview_ds9_annotation_margin',
                     'dashboard_flip_vertical', 'dashboard_flip_horizontal',
                     'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
                     # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
                     #       overscan_region_card, ccd_bin_card are optional
                 ],
                 'properties': {
+                    'worker_daemon': {
+                        'type': 'string',
+                        'daemon_name': True
+                    },
+                    'worker_processes': {
+                        'type': 'number',
+                        'minimum': 1
+                    },
+                    'input_data_path': {
+                        'type': 'string',
+                        'directory_path': True
+                    },
+                    'output_data_path': {
+                        'type': 'string',
+                        'directory_path': True
+                    },
+                    'dashboard_output_path': {
+                        'type': 'string',
+                        'directory_path': True
+                    },
+                    'dashboard_prefix': {
+                        'type': 'string'
+                    },
                     'wcs_scale_high': {
                         'type': 'number'
                     },
@@ -126,6 +145,12 @@ CONFIG_SCHEMA = {
                     'object_minpix': {
                         'type': 'integer'
                     },
+                    'preview_min_interval': {
+                        'type': 'integer'
+                    },
+                    'preview_max_instances': {
+                        'type': 'integer'
+                    },
                     'preview_ds9_width': {
                         'type': 'integer'
                     },
@@ -156,7 +181,7 @@ CONFIG_SCHEMA = {
                     'dashboard_clip_size': {
                         'type': 'integer'
                     },
-                    'dashboard_max_cadence': {
+                    'dashboard_min_interval': {
                         'type': 'number',
                         'minimum': 0
                     },
@@ -272,17 +297,16 @@ class Config:
         validation.validate_config(config_json, CONFIG_SCHEMA, validators)
 
         self.daemon = getattr(daemons, config_json['daemon'])
-        self.environment_daemon = getattr(daemons, config_json['environment_daemon'])
+        self.environment_daemon_name = config_json['environment_daemon']
         self.environment_query_timeout = config_json['environment_query_timeout']
         self.telescope_query_timeout = config_json['telescope_query_timeout']
-        self.ops_daemon = getattr(daemons, config_json['ops_daemon'])
+        self.ops_daemon_name = config_json['ops_daemon']
         self.log_name = config_json['log_name']
         self.control_ips = [getattr(IP, machine) for machine in config_json['control_machines']]
         self.notify_frame_machines = [getattr(IP, machine) for machine in config_json['notify_frame_machines']]
-        self.incoming_data_path = config_json['incoming_data_path']
-        self.data_root_path = config_json['data_root_path']
-        self.dashboard_output_path = config_json['dashboard_output_path']
+        self.guiding_min_interval = config_json['guiding_min_interval']
         self.cameras = config_json['cameras']
+
         self.environment_cards = config_json['environment_cards']
         self.telescope_cards = config_json['telescope_cards']
         for card in self.telescope_cards:

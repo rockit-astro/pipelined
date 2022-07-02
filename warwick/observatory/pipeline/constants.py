@@ -32,6 +32,7 @@ class CommandStatus:
     NewDirectoryFailed = 51
     TunnelCreationFailed = 60
     TunnelPortInUse = 61
+    TooManyPreviews = 62
 
     _messages = {
         # General error codes
@@ -43,6 +44,7 @@ class CommandStatus:
         51: 'error: failed to create night directory (already exists?)',
         60: 'error: failed to create ssh tunnel for remote preview',
         61: 'error: ssh tunnel port for remote preview already in use',
+        62: 'error: too many previews have already been registered',
 
         -101: 'error: unable to communicate with pipeline daemon',
     }

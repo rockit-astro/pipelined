@@ -1,5 +1,5 @@
 Name:      onemetre-pipeline-data
-Version:   20220410
+Version:   20220708
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline configuration for W1m telescope.
@@ -12,9 +12,13 @@ BuildArch: noarch
 %build
 mkdir -p %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/onemetre.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/onemetre_blue.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/onemetre_red.args %{buildroot}%{_sysconfdir}/pipelined
 
 %files
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/onemetre.json
+%{_sysconfdir}/pipelined/onemetre_blue.args
+%{_sysconfdir}/pipelined/onemetre_red.args
 
 %changelog

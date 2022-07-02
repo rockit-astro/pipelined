@@ -7,6 +7,8 @@
 * Extracting frame properties for opsd (e.g. x/y profiles for autoguiding, HFDs for focusing, median intensity for flats)
 * Generating previews for the web dashboard
 
+The actual processing is done by `pipeline_workerd`, which runs as a separate daemon for each camera (possibly on separate machines).
+
 `pipeline` is a commandline utility for configuring the pipeline.
 
 See [Software Infrastructure](https://github.com/warwick-one-metre/docs/wiki/Software-Infrastructure) for an overview of the observatory software architecture and instructions for developing and deploying the code.
@@ -27,13 +29,17 @@ The configuration options are:
   "environment_query_timeout": 1, # The maximum timeout when querying environment data. Frame headers will be marked as not available if this expires.
   "telescope_query_timeout": 1, # The maximum timeout when querying telescope data. Frame headers will be marked as not available if this expires.
   "ops_daemon": "localhost_test5", # The operations daemon that should be notified when a frame is processed. See opsd project.
-  "incoming_data_path": "/var/tmp", # The directory where camera daemons save frames before calling notify_frame.
-  "data_root_path": "/home/ops", # The root path under which nightly data directories are created.
-  "dashboard_output_path": "/home/ops", # The path to save generated preview data to display on the dashboard (usually an nfs mount).
+  "guiding_min_interval": 5, # The minimum interval (in seconds) between autoguider update calculations.
   "cameras": {
     "TEST": {
-      "wcs_scale_high": 0.38, # Scale parameter for astrometry.net; arcsec per px.
-      "wcs_scale_low": 0.40, # Scale parameter for astrometry.net; arcsec per px.
+      "worker_daemon": "localhost_test3", # Run the worker service as this daemon. Daemon types are registered in `warwick.observatory.common.daemons`.
+      "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
+      "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
+      "output_data_path": "/data",  # The root path under which nightly data directories are created.
+      "dashboard_output_path": "/mnt/dashboard-generated", # The path to save generated preview data to display on the dashboard (usually an nfs mount).
+      "dashboard_prefix": "dashboard-CAM1", # The filename prefix to use for generated preview data.
+      "wcs_scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
+      "wcs_scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.
       "wcs_timeout": 4.0, # Solution timeout for astrometry.net.
       "wcs_search_ra_card": "TELRA", # (optional) Header card (from telescope_cards below) with the estimated telescope RA.
       "wcs_search_dec_card": "TELDEC", # (optional) Header card (from telescope_cards below) with the estimated telescope Dec.
@@ -43,6 +49,8 @@ The configuration options are:
       "overscan_region_card": "BIAS-RGN", # (optional) Header card (from the camera daemon) to measure overscan bias level to subtract from intensity statistics.
       "platescale": 0.391, # Image platescale used to convert px HFDs to arcsec.
       "object_minpix": 16, # Minimum object pixel count for source detection.
+      "preview_min_interval": 5,# The minimum interval (in seconds) between preview updates.
+      "preview_max_instances": 5, # Maximum number of ds9 previews that can be active for this camera 
       "preview_ds9_width": 512, # Default ds9 window width for pipeline preview windows.
       "preview_ds9_height": 572, # Default ds9 window height for pipeline preview windows.
       "preview_ds9_zoom": 0.5, # Default ds9 window zoom for pipeline preview windows.
@@ -52,7 +60,10 @@ The configuration options are:
       "dashboard_min_threshold": 5, # Histogram black level (in percent) for dashboard previews.
       "dashboard_max_threshold": 95, # Histogram white level (in percent) for dashboard previews.
       "dashboard_thumb_size": 1024, # Dashboard thumbnail size.
-      "dashboard_clip_size": 1024 # Clip a region this big around the center of the image for the dashboard zoom preview.
+      "dashboard_clip_size": 1024, # Clip a region this big around the center of the image for the dashboard zoom preview.
+      "dashboard_min_interval": 30, # The minimum interval (in seconds) between dashboard updates.
+      "hfd_grid_tiles_x": 5, # Number of vertical slices used by the hfd grid previews
+      "hfd_grid_tiles_y": 4 # Number of horizontal slices used by the hfd grid previews
     }
     # Additional cameras can be defined.
   },
@@ -87,7 +98,7 @@ The automated packaging scripts will push 6 RPM packages to the observatory pack
 
 | Package           | Description |
 | ----------------- | ------ |
-| observatory-pipeline-server | Contains the `pipelined` server and systemd service file. |
+| observatory-pipeline-server | Contains the `pipelined` and `pipeline_workerd` servers and systemd service file. |
 | observatory-pipeline-client | Contains the `pipeline` commandline utility for controlling the pipeline server. |
 | python3-warwick-observatory-pipeline | Contains the python module with shared code. |
 | onemetre-pipeline-data | Contains the json configuration for the W1m pipeline installation. |
@@ -100,14 +111,24 @@ The `observatory-pipeline-server` and `observatory-pipeline-client` and `clasp-p
 
 The `observatory-pipeline-server` and `observatory-pipeline-client` and `superwasp-pipeline-data` packages should be installed on the `superwasp-tcs` TCS machine.
 
-After installing packages, the systemd service should be enabled:
+After installing packages, the main systemd service should be enabled:
 
 ```
-sudo systemctl enable pipelined@<config>
-sudo systemctl start pipelined@<config>
+sudo systemctl enable pipelined@<telescope>
+sudo systemctl start pipelined@<telescope>
 ```
 
-where `config` is the name of the json file for the appropriate telescope.
+where `telescope` is the name of the json file for the appropriate telescope.
+
+Enable the systemd services for each camera worker:
+
+```
+sudo systemctl enable pipeline_workerd@<telescope_camera>
+sudo systemctl start pipeline_workerd@<telescope_camera>
+```
+
+where `telescope` is the name of the json file for the appropriate telescope and camera is the camera ID.
+These map to an .args file in `/etc/pipelined`.
 
 Now open a port in the firewall:
 ```

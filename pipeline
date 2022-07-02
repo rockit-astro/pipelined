@@ -23,7 +23,6 @@
 import glob
 import os
 import random
-import subprocess
 import sys
 import traceback
 import pyds9
@@ -79,13 +78,14 @@ def list_cameras(config, _):
     print(' '.join(camera_ids(config)))
     return 0
 
+
 def print_status(config, _):
     """Reports the current pipeline status"""
     with config.daemon.connect() as pipeline:
         data = pipeline.report_status()
 
     print('Frame Archiving:')
-    print('   Archive directory is ' + TFmt.Bold + data['archive_directory'] + TFmt.Clear)
+    print('   Archive subdirectory is ' + TFmt.Bold + data['archive_subdirectory'] + TFmt.Clear)
     print('   Frame prefix is ' + TFmt.Bold + data['frame_prefix'] + TFmt.Clear)
     print('   Frame type is ' + TFmt.Bold + data['frame_type'] + TFmt.Clear)
     if data['frame_type'] == 'SCIENCE':
@@ -133,12 +133,12 @@ def dashboard(config, args):
     return -1
 
 
-def set_archive_directory(config, args):
-    """Set the frame archive directory"""
+def set_archive_subdirectory(config, args):
+    """Set the frame archive subdirectory"""
     if len(args) == 1:
         with config.daemon.connect() as pipeline:
-            return pipeline.set_archive_directory(os.path.abspath(args[0]))
-    print('usage: {} dir <output frame directory>'.format(SCRIPT_NAME))
+            return pipeline.set_archive_subdirectory(args[0])
+    print('usage: {} subdir <subdirectory name>'.format(SCRIPT_NAME))
     return -1
 
 
@@ -282,7 +282,7 @@ def print_usage():
     print('   preview      open a ds9 window to preview acquired frames')
     print('output frame commands')
     print('   archive      enable or disable frame archiving')
-    print('   dir          set archive directory')
+    print('   subdir       set archive subdirectory')
     print('   prefix       set archive frame prefix')
     print('   object       set metadata object name')
     print('   type         set metadata frame type')
@@ -302,7 +302,7 @@ if __name__ == '__main__':
         'status': print_status,
         'preview': register_preview,
         'archive': set_archive,
-        'dir': set_archive_directory,
+        'subdir': set_archive_subdirectory,
         'prefix': set_prefix,
         'object': set_object,
         'type': set_type,

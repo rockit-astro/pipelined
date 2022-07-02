@@ -1,5 +1,5 @@
 Name:      observatory-pipeline-server
-Version:   20220630
+Version:   20220708
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline server.
@@ -19,10 +19,16 @@ mkdir -p %{buildroot}%{_unitdir}
 %{__install} %{_sourcedir}/pipelined %{buildroot}%{_bindir}
 %{__install} %{_sourcedir}/pipelined@.service %{buildroot}%{_unitdir}
 
+%{__install} %{_sourcedir}/pipeline_workerd %{buildroot}%{_bindir}
+%{__install} %{_sourcedir}/pipeline_workerd@.service %{buildroot}%{_unitdir}
+
 %files
 %defattr(0755,root,root,-)
 %{_bindir}/pipelined
+%{_bindir}/pipeline_workerd
+
 %defattr(0644,root,root,-)
 %{_unitdir}/pipelined@.service
+%{_unitdir}/pipeline_workerd@.service
 
 %changelog

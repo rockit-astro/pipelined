@@ -5,7 +5,7 @@ _pipeline()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     prevprev="${COMP_WORDS[COMP_CWORD-2]}"
-    opts="status preview archive dir prefix object type wcs rotation hfd hfdgrid intstats dashboard"
+    opts="status preview archive subdir prefix object type wcs rotation hfd hfdgrid intstats dashboard"
     case "${prev}" in
         preview|archive)
             opts=$(pipeline list-cameras)
@@ -18,12 +18,6 @@ _pipeline()
             ;;
         type)
             opts="bias dark flat science junk"
-            ;;
-        dir)
-            # Fall back to readline completion for dirs (from the -o default)
-            compopt -o default
-            COMPREPLY=()
-            return 0
             ;;
         *)
             if [ "${prevprev}" == "archive" ] || [ "${prevprev}" == "preview" ]; then

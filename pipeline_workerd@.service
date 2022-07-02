@@ -5,9 +5,10 @@ Wants=network-online.target
 After=network-online.target
 
 [Service]
+EnvironmentFile=/etc/pipelined/%i.args
 Restart=on-failure
 Type=simple
-ExecStart=/usr/bin/env python3 -u /usr/bin/pipelined /etc/pipelined/%i.json
+ExecStart=/usr/bin/env python3 -u /usr/bin/pipeline_workerd /etc/pipelined/${PIPELINED_TELESCOPE}.json ${PIPELINED_CAM}
 StandardOutput=syslog
 StandardError=syslog
 
