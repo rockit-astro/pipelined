@@ -62,11 +62,15 @@ ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text
 def window_header_region(header, data, keyword):
     """Returns a cropped view of frame data"""
     if keyword not in header:
-        return data
+        return data, 0, 0
 
     region = header[keyword]
     r = re.search(r'^\[(\d+):(\d+),(\d+):(\d+)\]$', region).groups()
-    return data[int(r[2]) - 1:int(r[3]), int(r[0]) - 1:int(r[1])]
+    x1 = int(r[0]) - 1
+    x2 = int(r[1])
+    y1 = int(r[2]) - 1
+    y2 = int(r[3])
+    return data[y1:y2, x1:x2], x1, y1
 
 
 def rescale_image_data(data, clip_low, clip_high):
@@ -198,7 +202,7 @@ def add_environment_header(header, info, log_name, environment_cards, environmen
             header.append(fits.Card('COMMENT', ' ' + card['key'] + ' not available', ''), end=True)
 
 
-def add_pipeline_header(header, data, info, config, filename):
+def add_pipeline_header(header, info, filename):
     """Adds pipeline configuration to the frame header"""
     desc = fits.Card('COMMENT', ' ---               DATA PIPELINE               --- ')
     header.append(fits.Card(None, None), end=True)
@@ -220,15 +224,6 @@ def add_pipeline_header(header, data, info, config, filename):
         header.append(fits.Card('OBJECT', info['frame_object'], 'science target name'), end=True)
     else:
         header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
-
-    if 'overscan_region_card' in config and config['overscan_region_card'] in header:
-        bias = window_header_region(header, data, config['overscan_region_card'])
-        header.append(create_float_card('MEANBIAS', np.mean(bias),
-                                        '[adu] mean overscan bias counts', 2), end=True)
-        header.append(create_float_card('MEDBIAS', np.median(bias),
-                                        '[adu] median overscan bias counts', 2), end=True)
-        header.append(create_float_card('STDBIAS', np.std(bias),
-                                        '[adu] overscan bias standard deviation', 2), end=True)
 
 
 def add_wcs_header(header, info, objects, config):
@@ -316,7 +311,7 @@ def add_wcs_header(header, info, objects, config):
         ]
 
 
-def detect_objects(header, data, background_rms, config):
+def detect_objects(header, data, background_rms, config, crop_x, crop_y):
     """returns an Astropy table containing (X, Y, FLUX, HFD_PX, HFD_ARCSEC) for each
        object detected by sep"""
     try:
@@ -350,7 +345,8 @@ def detect_objects(header, data, background_rms, config):
         # pylint: enable=no-member
 
         objects = Table(
-            [objects['x'][filt], objects['y'][filt], flux[filt], 2 * r[filt], 2 * r[filt] * platescale],
+            [objects['x'][filt] + crop_x, objects['y'][filt] + crop_y, flux[filt],
+             2 * r[filt], 2 * r[filt] * platescale],
             names=('X', 'Y', 'FLUX', 'HFD_PX', 'HFD_ARCSEC'),
             dtype=(float, float, float, float, float)
         )
@@ -380,15 +376,25 @@ def add_hfd_header(header, objects):
         sys.stdout.flush()
 
 
-def add_intensity_stats_header(header, data):
+def add_intensity_stats_header(header, data_raw, data_cropped, config):
     """Adds the frame intensity to the frame header"""
     try:
-        header.append(create_float_card('MEANCNTS', np.mean(data),
+        header.append(create_float_card('MEANCNTS', np.mean(data_cropped),
                                         '[adu] mean frame counts', 2), end=True)
-        header.append(create_float_card('MEDCNTS', np.median(data),
+        header.append(create_float_card('MEDCNTS', np.median(data_cropped),
                                         '[adu] median frame counts', 2), end=True)
-        header.append(create_float_card('STDCNTS', np.std(data),
+        header.append(create_float_card('STDCNTS', np.std(data_cropped),
                                         '[adu] frame counts standard deviation', 2), end=True)
+
+        if 'overscan_region_card' in config and config['overscan_region_card'] in header:
+            bias, *_ = window_header_region(header, data_raw, config['overscan_region_card'])
+            header.append(create_float_card('MEANBIAS', np.mean(bias),
+                                            '[adu] mean overscan bias counts', 2), end=True)
+            header.append(create_float_card('MEDBIAS', np.median(bias),
+                                            '[adu] median overscan bias counts', 2), end=True)
+            header.append(create_float_card('STDBIAS', np.std(bias),
+                                            '[adu] overscan bias standard deviation', 2), end=True)
+
     except Exception:
         print('failed to calculate intensity stats with error: ')
         traceback.print_exc(file=sys.stdout)
@@ -449,57 +455,50 @@ def generate_hfd_grid_annotations(header, objects, config):
     return annotations
 
 
-def update_dashboard(header, data, config, dashboard_timestamp, dashboard_min_interval):
-    with dashboard_timestamp.get_lock():
-        ts = dashboard_timestamp.value.decode('ascii')
-        if header['DATE-OBS'] != ts and Time(header['DATE-OBS']) < Time(ts) + dashboard_min_interval * u.s:
-            return
+def update_dashboard(header, data, config):
+    try:
+        size = np.shape(data)
+        metadata = {
+            'date': header['DATE-OBS'],
+            'exptime': header['EXPTIME'],
+            'saved': header['FILESAVE'],
+            'filename': header['FILENAME'] if 'FILENAME' in header else '',
+            'size': [size[1], size[0]],
+            'clipsize': config['dashboard_clip_size'],
+        }
 
-        dashboard_timestamp.value = header['DATE-OBS'].encode('ascii')
-
-        try:
-            size = np.shape(data)
-            metadata = {
-                'date': header['DATE-OBS'],
-                'exptime': header['EXPTIME'],
-                'saved': header['FILESAVE'],
-                'filename': header['FILENAME'] if 'FILENAME' in header else '',
-                'size': [size[1], size[0]],
-                'clipsize': config['dashboard_clip_size'],
-            }
-
-            scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
-            preview = Image.fromarray(scaled).convert('RGB')
-            if config['dashboard_flip_vertical']:
-                preview = ImageOps.flip(preview)
-            if config['dashboard_flip_horizontal']:
-                preview = ImageOps.mirror(preview)
-
-            preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
-            thumb_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix']+ '-thumb.jpg')
-            preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
-
-            # Clip the central region from the image
-            cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
-            cx2 = cx1 + config['dashboard_clip_size']
-            cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
-            cy2 = cy1 + config['dashboard_clip_size']
-
-            clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
-                                         config['dashboard_min_threshold'],
-                                         config['dashboard_max_threshold'])
-            preview = Image.fromarray(clipped).convert('RGB')
+        scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
+        preview = Image.fromarray(scaled).convert('RGB')
+        if config['dashboard_flip_vertical']:
             preview = ImageOps.flip(preview)
-            clip_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '-clip.jpg')
-            preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+        if config['dashboard_flip_horizontal']:
+            preview = ImageOps.mirror(preview)
 
-            json_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '.json')
-            with open(json_path, 'w') as outfile:
-                json.dump(metadata, outfile)
-        except Exception:
-            print('failed to generate dashboard preview with error:')
-            traceback.print_exc(file=sys.stdout)
-            sys.stdout.flush()
+        preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
+        thumb_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix']+ '-thumb.jpg')
+        preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
+
+        # Clip the central region from the image
+        cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
+        cx2 = cx1 + config['dashboard_clip_size']
+        cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
+        cy2 = cy1 + config['dashboard_clip_size']
+
+        clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
+                                     config['dashboard_min_threshold'],
+                                     config['dashboard_max_threshold'])
+        preview = Image.fromarray(clipped).convert('RGB')
+        preview = ImageOps.flip(preview)
+        clip_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '-clip.jpg')
+        preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+
+        json_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '.json')
+        with open(json_path, 'w') as outfile:
+            json.dump(metadata, outfile)
+    except Exception:
+        print('failed to generate dashboard preview with error:')
+        traceback.print_exc(file=sys.stdout)
+        sys.stdout.flush()
 
 
 def notify_opsd(header, ops_daemon, log_name):
@@ -512,28 +511,22 @@ def notify_opsd(header, ops_daemon, log_name):
         sys.stdout.flush()
 
 
-def notify_guide_profiles(header, data, log_name, ops_daemon, guide_min_interval, guide_timestamp):
-    with guide_timestamp.get_lock():
-        ts = guide_timestamp.value.decode('ascii')
-        if header['DATE-OBS'] != ts and Time(header['DATE-OBS']) < Time(ts) + guide_min_interval * u.s:
-            return
+def notify_guide_profiles(header, data, log_name, ops_daemon):
+    # Collapse into x/y profiles
+    # Note: data is expected to already be background-subtracted
+    # Note: Pyro doesn't support numpy arrays, so convert to a built-in type
+    profile_x = array.array('f', np.mean(data, axis=0))
+    profile_y = array.array('f', np.mean(data, axis=1))
 
-        # Collapse into x/y profiles
-        # Note: data is expected to already be background-subtracted
-        # Note: Pyro doesn't support numpy arrays, so convert to a built-in type
-        profile_x = array.array('f', np.mean(data, axis=0))
-        profile_y = array.array('f', np.mean(data, axis=1))
+    try:
+        with ops_daemon.connect() as ops:
+            ops.notify_guide_profiles(header_to_dict(header), profile_x, profile_y)
 
-        try:
-            with ops_daemon.connect() as ops:
-                ops.notify_guide_profiles(header_to_dict(header), profile_x, profile_y)
-
-            guide_timestamp.value = header['DATE-OBS'].encode('ascii')
-        except Exception as e:
-            log.error(log_name, 'Failed to notify operations daemon of guide profiles (' + str(e) + ')')
+    except Exception as e:
+        log.error(log_name, 'Failed to notify operations daemon of guide profiles (' + str(e) + ')')
 
 
-def process_previews(preview_queue, preview_min_interval, ds9_preview_ports, preview_timestamp):
+def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
     """A thread running in each processing process that allows ds9 preview updates
        to run concurrently with the main processing work.
      """
@@ -541,13 +534,7 @@ def process_previews(preview_queue, preview_min_interval, ds9_preview_ports, pre
         # Block until a preview is available
         data, header, annotations = preview_queue.get()
 
-        with preview_timestamp.get_lock():
-            ts = preview_timestamp.value.decode('ascii')
-            if header['DATE-OBS'] != ts and Time(header['DATE-OBS']) < Time(ts) + preview_min_interval * u.s:
-                return
-
-            preview_timestamp.value = header['DATE-OBS'].encode('ascii')
-
+        with ds9_preview_xpa_lock:
             for i in range(len(ds9_preview_ports)):
                 port = ds9_preview_ports[i]
                 if port == 0:
@@ -555,7 +542,7 @@ def process_previews(preview_queue, preview_min_interval, ds9_preview_ports, pre
 
                 try:
                     p = pyds9.DS9('7f000001:' + str(port), start=False, wait=1)
-                    if header['DATE-OBS'] != preview_timestamp.value:
+                    if data is not None:
                         hdu = fits.PrimaryHDU(data, header=header)
                         move_bscale_bzero(hdu.header)
                         p.set_pyfits(fits.HDUList(hdu))
@@ -580,7 +567,7 @@ def process_previews(preview_queue, preview_min_interval, ds9_preview_ports, pre
 
 
 def process_frames(processing_queue, camera_config,
-                   preview_timestamp, ds9_preview_ports,
+                   preview_timestamp, ds9_preview_ports, ds9_preview_xpa_lock,
                    guide_timestamp, guide_min_interval,
                    dashboard_timestamp, log_name,
                    environment_cards, environment_daemon_name, environment_query_timeout,
@@ -597,7 +584,7 @@ def process_frames(processing_queue, camera_config,
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
     threading.Thread(target=process_previews, daemon=True,
-                     args=(preview_queue, camera_config['preview_min_interval'], ds9_preview_ports, preview_timestamp)
+                     args=(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock)
                      ).start()
 
     while True:
@@ -615,7 +602,50 @@ def process_frames(processing_queue, camera_config,
             # This relies on the camera daemon reserving sufficient blank header keywords
             # to be replaced below. This avoids having to move all the pixel data
             # in the file to create additional header blocks.
-            data, header = fits.getdata(loadpath, header=True)
+            header = fits.getheader(loadpath)
+            steps = ['headers']
+
+            # We can skip loading the frame data if we know for sure that
+            # we aren't going to need it.
+            data_bgsubtracted = data_cropped = data_raw = data_background = None
+            crop_x = crop_y = 0
+            header_time = Time(header['DATE-OBS'])
+
+            guide_profiles_stale = False
+            if info['guide_profiles']:
+                with guide_timestamp.get_lock():
+                    if header_time > Time(guide_timestamp.value.decode('ascii')) + guide_min_interval * u.s:
+                        guide_timestamp.value = header['DATE-OBS'].encode('ascii')
+                        guide_profiles_stale = True
+
+            preview_stale = False
+            if any(ds9_preview_ports):
+                with preview_timestamp.get_lock():
+                    next_preview_time = Time(preview_timestamp.value.decode('ascii')) + \
+                        camera_config['preview_min_interval'] * u.s
+                    if header_time > next_preview_time:
+                        preview_timestamp.value = header['DATE-OBS'].encode('ascii')
+                        preview_stale = True
+
+            dashboard_stale = False
+            if info['dashboard_enabled']:
+                with dashboard_timestamp.get_lock():
+                    next_dashboard_time = Time(dashboard_timestamp.value.decode('ascii')) + \
+                        camera_config['dashboard_min_interval'] * u.s
+                    if header_time > next_dashboard_time:
+                        dashboard_timestamp.value = header['DATE-OBS'].encode('ascii')
+                        dashboard_stale = True
+
+            calculate_objects = info['hfd_enabled'] or info['hfd_grid_enabled'] or \
+                info['wcs_enabled'] or info['rotation_enabled']
+
+            calculate_bgsubtracted = calculate_objects or guide_profiles_stale
+            calculate_cropped = calculate_bgsubtracted or info['intensity_stats_enabled'] or dashboard_stale
+            if calculate_cropped or preview_stale:
+                data_raw, header = fits.getdata(loadpath, header=True)
+                steps.append('data')
+            else:
+                header = fits.getheader(loadpath)
 
             # Strip empty rows from the end of the header
             # fits blocks are 2880 bytes, which can hold 36 80 byte header cards.
@@ -623,25 +653,19 @@ def process_frames(processing_queue, camera_config,
             while header.cards[-1][0] == '' and header.cards[-1][1] == '':
                 header.pop()
 
-            data_bgsubtracted = data_cropped = None
-            calculate_objects = info['hfd_enabled'] or info['hfd_grid_enabled'] or \
-                                info['wcs_enabled'] or info['rotation_enabled']
-            calculate_bgsubtracted = calculate_objects or info['guide_profiles']
-            calculate_cropped = calculate_bgsubtracted or info['intensity_stats_enabled'] or info['dashboard_enabled']
-
             if calculate_cropped:
-                data_cropped = window_header_region(header, data, camera_config.get('image_region_card', None))
+                data_cropped, crop_x, crop_y = window_header_region(header, data_raw,
+                                                                    camera_config.get('image_region_card', None))
+                steps.append('crop')
 
             if calculate_bgsubtracted:
                 data_bgsubtracted = data_cropped.astype(float)
                 data_background = sep.Background(data_bgsubtracted)
                 data_background.subfrom(data_bgsubtracted)
+                steps.append('background')
 
-            steps = ['headers']
-
-            if info['guide_profiles']:
-                notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon,
-                                      guide_min_interval, guide_timestamp)
+            if guide_profiles_stale:
+                notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
                 steps.append('guiding')
 
             output_filename = None
@@ -654,15 +678,16 @@ def process_frames(processing_queue, camera_config,
             add_telescope_header(header, info, log_name, telescope_cards, telescope_query_timeout)
             add_environment_header(header, info, log_name, environment_cards,
                                    environment_daemon, environment_query_timeout)
-            add_pipeline_header(header, data, info, camera_config, output_filename)
+            add_pipeline_header(header, info, output_filename)
 
             if info['intensity_stats_enabled']:
-                add_intensity_stats_header(header, data_cropped)
+                add_intensity_stats_header(header, data_raw, data_cropped, camera_config)
                 steps.append('intstats')
 
             objects = None
             if calculate_objects:
-                objects = detect_objects(header, data_bgsubtracted, data_background.globalrms, camera_config)
+                objects = detect_objects(header, data_bgsubtracted, data_background.globalrms, camera_config,
+                                         crop_x, crop_y)
                 steps.append('objdetect')
 
             if info['hfd_enabled']:
@@ -670,19 +695,22 @@ def process_frames(processing_queue, camera_config,
                 steps.append('hfd')
 
             # Update previews before the relatively-slow WCS step
-            annotations = generate_header_annotations(header, info, objects, camera_config)
-            preview_queue.put((data, header, annotations))
+            if preview_stale:
+                annotations = generate_header_annotations(header, info, objects, camera_config)
+                preview_queue.put((data_raw, header, annotations))
 
             if info['wcs_enabled'] or info['rotation_enabled']:
                 wcs = add_wcs_header(header, info, objects, camera_config)
-                preview_queue.put((data, header, wcs))
+                if preview_stale:
+                    preview_queue.put((None, header, wcs))
                 steps.append('wcs')
                 if info['rotation_enabled']:
                     steps.append('rotation')
 
             if info['hfd_grid_enabled']:
                 grid = generate_hfd_grid_annotations(header, objects, camera_config)
-                preview_queue.put((data, header, grid))
+                if preview_stale:
+                    preview_queue.put((None, header, grid))
                 steps.append('hfd_grid')
 
             notify_opsd(header, ops_daemon, log_name)
@@ -717,9 +745,8 @@ def process_frames(processing_queue, camera_config,
             process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
             print('processed ' + loadpath + ' in ' + str(process_time) + 's (' + ', '.join(steps) + ')', flush=True)
 
-            if info['dashboard_enabled']:
-                update_dashboard(header, data_cropped, camera_config, dashboard_timestamp,
-                                 camera_config['dashboard_min_interval'])
+            if dashboard_stale:
+                update_dashboard(header, data_cropped, camera_config)
 
         except Exception:
             print('Unexpected exception while processing ' + loadpath + ': ')
@@ -748,14 +775,16 @@ class PipelineWorkerDaemon:
         self._preview_timestamp = multiprocessing.Array('c', start_timestamp)
         self._guide_timestamp = multiprocessing.Array('c', start_timestamp)
         self._dashboard_timestamp = multiprocessing.Array('c', start_timestamp)
+
         # Use 0 to indicate an unregistered preview slot
         self._ds9_preview_ports = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
         self._ds9_preview_registration_lock = threading.Lock()
+        self._ds9_preview_xpa_lock = multiprocessing.Lock()
 
         for _ in range(self._camera_config['worker_processes']):
             multiprocessing.Process(target=process_frames, daemon=True, args=(
                 self._processing_queue, self._camera_config,
-                self._preview_timestamp, self._ds9_preview_ports,
+                self._preview_timestamp, self._ds9_preview_ports, self._ds9_preview_xpa_lock,
                 self._guide_timestamp, config.guiding_min_interval,
                 self._dashboard_timestamp, config.log_name,
                 config.environment_cards, config.environment_daemon_name, config.environment_query_timeout,
