@@ -48,7 +48,7 @@
       "input_data_path": "/var/tmp",
       "output_data_path": "/data/w1m",
       "dashboard_output_path": "/mnt/dashboard-generated",
-      "dashboard_prefix": "dashboard-BLUE",
+      "dashboard_prefix": "dashboard-RED",
       "wcs_scale_high": 0.38,
       "wcs_scale_low": 0.40,
       "wcs_timeout": 4.0,
