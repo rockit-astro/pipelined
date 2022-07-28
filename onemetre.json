@@ -12,8 +12,8 @@
     "BLUE": {
       "worker_daemon": "onemetre_pipeline_blue",
       "worker_processes": 2,
-      "input_data_path": "/var/tmp",
-      "output_data_path": "/data/w1m",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-BLUE",
       "wcs_scale_high": 0.40,
@@ -45,8 +45,8 @@
     "RED": {
       "worker_daemon": "onemetre_pipeline_red",
       "worker_processes": 2,
-      "input_data_path": "/var/tmp",
-      "output_data_path": "/data/w1m",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-RED",
       "wcs_scale_high": 0.38,
