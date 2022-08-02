@@ -765,6 +765,7 @@ class PipelineWorkerDaemon:
     def __init__(self, config, camera_id):
         self._config = config
         self._camera_config = config.cameras[camera_id]
+        self._camera_daemon = getattr(daemons, self._camera_config['worker_daemon'])
 
         # Block if all workers are saturated so the pyro notification
         # can timeout and propagate back to stop the camera exposures
@@ -841,7 +842,7 @@ class PipelineWorkerDaemon:
                 if self._ds9_preview_ports[i] == 0:
                     break
 
-            if host != self._config.daemon.host:
+            if host != self._camera_daemon.host:
                 try:
                     # pyds9 will fail unless the local and remote ports are the same, so we need
                     # the same port to be free on both client and server.
