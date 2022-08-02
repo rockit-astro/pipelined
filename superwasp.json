@@ -9,11 +9,11 @@
   "ops_daemon": "superwasp_operations",
   "guiding_min_interval": 5,
   "cameras": {
-    "1": {
+    "CAM1": {
       "worker_daemon": "superwasp_pipeline_cam1",
       "worker_processes": 2,
-      "input_data_path": "/data/wasp/incoming",
-      "output_data_path": "/data/wasp",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-1",
       "wcs_scale_high": 10,
@@ -42,11 +42,11 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4
     },
-    "2": {
+    "CAM2": {
       "worker_daemon": "superwasp_pipeline_cam2",
       "worker_processes": 2,
-      "input_data_path": "/data/wasp/incoming",
-      "output_data_path": "/data/wasp",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-2",
       "wcs_scale_high": 10,
@@ -75,11 +75,11 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4
     },
-    "3": {
+    "CAM3": {
       "worker_daemon": "superwasp_pipeline_cam3",
       "worker_processes": 2,
-      "input_data_path": "/data/wasp/incoming",
-      "output_data_path": "/data/wasp",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-3",
       "wcs_scale_high": 10,
@@ -108,11 +108,11 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4
     },
-    "4": {
+    "CAM4": {
       "worker_daemon": "superwasp_pipeline_cam4",
       "worker_processes": 2,
-      "input_data_path": "/data/wasp/incoming",
-      "output_data_path": "/data/wasp",
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
       "dashboard_output_path": "/mnt/dashboard-generated",
       "dashboard_prefix": "dashboard-4",
       "wcs_scale_high": 10,
