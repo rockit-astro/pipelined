@@ -278,10 +278,10 @@ def add_wcs_header(header, info, objects, config):
         wcs_ignore_cards = ['SIMPLE', 'BITPIX', 'NAXIS', 'EXTEND', 'DATE', 'IMAGEW', 'IMAGEH']
         comment = 'astrometry.net wcs solution'
         with open(wcs_path) as wcs_file:
-            header = wcs_file.read()
+            h = wcs_file.read()
             # ds9 will only accept newline-delimited keys
             # so we need to reformat the 80-character cards
-            for line in [header[i:i+80] for i in range(0, len(header), 80)]:
+            for line in [h[i:i+80] for i in range(0, len(h), 80)]:
                 key = line[0:8].strip()
                 if '=' in line and key not in wcs_ignore_cards:
                     card = fits.Card.fromstring(line)
@@ -305,7 +305,10 @@ def add_wcs_header(header, info, objects, config):
 
         return annotations
     except Exception as e:
-        print('failed to update wcs with error: ' + str(e), flush=True)
+        print('failed to update wcs with error: ')
+        traceback.print_exc(file=sys.stdout)
+        sys.stdout.flush()
+
         return [
             ('regions', ANNOTATION_LABEL.format(width / 4, -config['preview_ds9_annotation_margin'], 'WCS: FAILED'))
         ]
