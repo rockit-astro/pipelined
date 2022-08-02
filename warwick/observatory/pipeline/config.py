@@ -71,130 +71,7 @@ CONFIG_SCHEMA = {
         },
         'cameras': {
             'type': 'object',
-            'additionalProperties': {
-                'type': 'object',
-                'additionalProperties': False,
-                'required': [
-                    'worker_daemon', 'worker_processes',
-                    'input_data_path', 'output_data_path',
-                    'dashboard_output_path', 'dashboard_prefix',
-                    'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
-                    'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
-                    'platescale', 'image_region_card', 'object_minpix',
-                    'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
-                    'preview_ds9_zoom', 'preview_ds9_annotation_margin',
-                    'dashboard_flip_vertical', 'dashboard_flip_horizontal',
-                    'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
-                    # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
-                    #       overscan_region_card, ccd_bin_card are optional
-                ],
-                'properties': {
-                    'worker_daemon': {
-                        'type': 'string',
-                        'daemon_name': True
-                    },
-                    'worker_processes': {
-                        'type': 'number',
-                        'minimum': 1
-                    },
-                    'input_data_path': {
-                        'type': 'string',
-                        'directory_path': True
-                    },
-                    'output_data_path': {
-                        'type': 'string',
-                        'directory_path': True
-                    },
-                    'dashboard_output_path': {
-                        'type': 'string',
-                        'directory_path': True
-                    },
-                    'dashboard_prefix': {
-                        'type': 'string'
-                    },
-                    'wcs_scale_high': {
-                        'type': 'number'
-                    },
-                    'wcs_scale_low': {
-                        'type': 'number'
-                    },
-                    'wcs_timeout': {
-                        'type': 'number'
-                    },
-                    'wcs_search_ra_card': {
-                        'type': 'string'
-                    },
-                    'wcs_search_dec_card': {
-                        'type': 'string'
-                    },
-                    'wcs_search_radius': {
-                        'type': 'number'
-                    },
-                    'ccd_bin_card': {
-                        'type': 'string'
-                    },
-                    'image_region_card': {
-                        'type': 'string'
-                    },
-                    'overscan_region_card': {
-                        'type': 'string'
-                    },
-                    'platescale': {
-                        'type': 'number'
-                    },
-                    'object_minpix': {
-                        'type': 'integer'
-                    },
-                    'preview_min_interval': {
-                        'type': 'integer'
-                    },
-                    'preview_max_instances': {
-                        'type': 'integer'
-                    },
-                    'preview_ds9_width': {
-                        'type': 'integer'
-                    },
-                    'preview_ds9_height': {
-                        'type': 'integer'
-                    },
-                    'preview_ds9_zoom': {
-                        'type': 'number'
-                    },
-                    'preview_ds9_annotation_margin': {
-                        'type': 'number'
-                    },
-                    'dashboard_flip_vertical': {
-                        'type': 'boolean'
-                    },
-                    'dashboard_flip_horizontal': {
-                        'type': 'boolean'
-                    },
-                    'dashboard_min_threshold': {
-                        'type': 'number'
-                    },
-                    'dashboard_max_threshold': {
-                        'type': 'number'
-                    },
-                    'dashboard_thumb_size': {
-                        'type': 'integer'
-                    },
-                    'dashboard_clip_size': {
-                        'type': 'integer'
-                    },
-                    'dashboard_min_interval': {
-                        'type': 'number',
-                        'minimum': 0
-                    },
-                    'hfd_grid_tiles_x': {
-                        'type': 'integer',
-                        'minimum': 1
-                    },
-                    'hfd_grid_tiles_y': {
-                        'type': 'integer',
-                        'minimum': 1
-                    }
-                }
-            }
+            # see CAMERA_CONFIG_SCHEMA for the sub-schema
         },
         'environment_cards': {
             'type': 'array',
@@ -276,10 +153,135 @@ CONFIG_SCHEMA = {
     }
 }
 
+CAMERA_CONFIG_SCHEMA = {
+    'type': 'object',
+    'additionalProperties': False,
+    'required': [
+        'worker_daemon', 'worker_processes',
+        'input_data_path', 'output_data_path',
+        'dashboard_output_path', 'dashboard_prefix',
+        'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
+        'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
+        'platescale', 'image_region_card', 'object_minpix',
+        'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
+        'preview_ds9_zoom', 'preview_ds9_annotation_margin',
+        'dashboard_flip_vertical', 'dashboard_flip_horizontal',
+        'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
+        # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
+        #       overscan_region_card, ccd_bin_card are optional
+    ],
+    'properties': {
+        'worker_daemon': {
+            'type': 'string',
+            'daemon_name': True
+        },
+        'worker_processes': {
+            'type': 'number',
+            'minimum': 1
+        },
+        'input_data_path': {
+            'type': 'string',
+            'directory_path': True
+        },
+        'output_data_path': {
+            'type': 'string',
+            'directory_path': True
+        },
+        'dashboard_output_path': {
+            'type': 'string',
+            'directory_path': True
+        },
+        'dashboard_prefix': {
+            'type': 'string'
+        },
+        'wcs_scale_high': {
+            'type': 'number'
+        },
+        'wcs_scale_low': {
+            'type': 'number'
+        },
+        'wcs_timeout': {
+            'type': 'number'
+        },
+        'wcs_search_ra_card': {
+            'type': 'string'
+        },
+        'wcs_search_dec_card': {
+            'type': 'string'
+        },
+        'wcs_search_radius': {
+            'type': 'number'
+        },
+        'ccd_bin_card': {
+            'type': 'string'
+        },
+        'image_region_card': {
+            'type': 'string'
+        },
+        'overscan_region_card': {
+            'type': 'string'
+        },
+        'platescale': {
+            'type': 'number'
+        },
+        'object_minpix': {
+            'type': 'integer'
+        },
+        'preview_min_interval': {
+            'type': 'integer'
+        },
+        'preview_max_instances': {
+            'type': 'integer'
+        },
+        'preview_ds9_width': {
+            'type': 'integer'
+        },
+        'preview_ds9_height': {
+            'type': 'integer'
+        },
+        'preview_ds9_zoom': {
+            'type': 'number'
+        },
+        'preview_ds9_annotation_margin': {
+            'type': 'number'
+        },
+        'dashboard_flip_vertical': {
+            'type': 'boolean'
+        },
+        'dashboard_flip_horizontal': {
+            'type': 'boolean'
+        },
+        'dashboard_min_threshold': {
+            'type': 'number'
+        },
+        'dashboard_max_threshold': {
+            'type': 'number'
+        },
+        'dashboard_thumb_size': {
+            'type': 'integer'
+        },
+        'dashboard_clip_size': {
+            'type': 'integer'
+        },
+        'dashboard_min_interval': {
+            'type': 'number',
+            'minimum': 0
+        },
+        'hfd_grid_tiles_x': {
+            'type': 'integer',
+            'minimum': 1
+        },
+        'hfd_grid_tiles_y': {
+            'type': 'integer',
+            'minimum': 1
+        }
+    }
+}
+
 
 class Config:
     """Daemon configuration parsed from a json file"""
-    def __init__(self, config_filename, validate_directories=True):
+    def __init__(self, config_filename, validate_camera=None):
         # Will throw on file not found or invalid json
         with open(config_filename, 'r') as config_file:
             config_json = json.load(config_file)
@@ -287,14 +289,14 @@ class Config:
         # Will throw on schema violations
         validators = {
             'daemon_name': validation.daemon_name_validator,
-            'machine_name': validation.machine_name_validator
+            'machine_name': validation.machine_name_validator,
+            'directory_path': validation.directory_path_validator
         }
 
-        # Don't validate directories if we are loading the config on a different machine
-        if validate_directories:
-            validators['directory_path'] = validation.directory_path_validator
-
         validation.validate_config(config_json, CONFIG_SCHEMA, validators)
+
+        if validate_camera:
+            validation.validate_config(config_json['cameras'][validate_camera], CAMERA_CONFIG_SCHEMA, validators)
 
         self.daemon = getattr(daemons, config_json['daemon'])
         self.environment_daemon_name = config_json['environment_daemon']

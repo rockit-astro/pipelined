@@ -881,6 +881,6 @@ if __name__ == '__main__':
     parser.add_argument('config', help='Path to configuration json file')
     parser.add_argument('camera_id', help='Camera ID')
     args = parser.parse_args()
-    c = Config(args.config)
+    c = Config(args.config, validate_camera=args.camera_id)
     daemon = getattr(daemons, c.cameras[args.camera_id]['worker_daemon'])
     daemon.launch(PipelineWorkerDaemon(c, args.camera_id))
