@@ -9,8 +9,6 @@ EnvironmentFile=/etc/pipelined/%i.args
 Restart=on-failure
 Type=simple
 ExecStart=/usr/bin/env python3 -u /usr/bin/pipeline_workerd /etc/pipelined/${PIPELINED_TELESCOPE}.json ${PIPELINED_CAM}
-StandardOutput=syslog
-StandardError=syslog
 
 [Install]
 WantedBy=multi-user.target
