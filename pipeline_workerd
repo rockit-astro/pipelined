@@ -425,11 +425,6 @@ def generate_header_annotations(header, info, objects, config):
             'HFD: ' + str(header['MEDHFD']) + ' arcsec')
         annotations.append(('regions', hfd_label))
 
-    if objects is not None and len(objects) > 0:
-        for row in objects:
-            cr = 'image; circle({},{},{}) #select=0 color=red'.format(row['X'] + 1, row['Y'] + 1, row['HFD_PX'])
-            annotations.append(('regions', cr))
-
     return annotations
 
 
