@@ -54,4 +54,4 @@ class CommandStatus:
         """Returns a human readable string describing an error code"""
         if error_code in cls._messages:
             return cls._messages[error_code]
-        return 'error: Unknown error code {}'.format(error_code)
+        return f'error: Unknown error code {error_code}'

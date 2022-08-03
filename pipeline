@@ -129,7 +129,7 @@ def dashboard(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_dashboard(args[0] == 'enable')
 
-    print('usage: {} dashboard [enable|disable]'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} dashboard [enable|disable]')
     return -1
 
 
@@ -138,7 +138,7 @@ def set_archive_subdirectory(config, args):
     if len(args) == 1:
         with config.daemon.connect() as pipeline:
             return pipeline.set_archive_subdirectory(args[0])
-    print('usage: {} subdir <subdirectory name>'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} subdir <subdirectory name>')
     return -1
 
 
@@ -147,7 +147,7 @@ def set_prefix(config, args):
     if len(args) == 1:
         with config.daemon.connect() as pipeline:
             return pipeline.set_output_frame_prefix(args[0])
-    print('usage: {} prefix <output frame prefix>'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} prefix <output frame prefix>')
     return -1
 
 
@@ -156,7 +156,7 @@ def set_object(config, args):
     if len(args) == 1:
         with config.daemon.connect() as pipeline:
             return pipeline.set_frame_object(args[0])
-    print('usage: {} object <object name>'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} object <object name>')
     return -1
 
 
@@ -165,7 +165,7 @@ def set_type(config, args):
     if len(args) == 1 and args[0] in TYPE_VALUES:
         with config.daemon.connect() as pipeline:
             return pipeline.set_frame_type(TYPE_VALUES[args[0]])
-    print('usage: {} type (bias|dark|flat|science|junk)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} type (bias|dark|flat|science|junk)')
     return -1
 
 
@@ -176,7 +176,7 @@ def set_archive(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_archive(cameras[args[0]], args[1] == 'enable')
 
-    print('usage: {} save ({}) (enable|disable)'.format(SCRIPT_NAME, '|'.join(cameras)))
+    print(f"usage: {SCRIPT_NAME} save ({'|'.join(cameras)}) (enable|disable)")
     return -1
 
 
@@ -186,7 +186,7 @@ def set_wcs(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_wcs(args[0] == 'enable')
 
-    print('usage: {} wcs (enable|disable)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} wcs (enable|disable)')
     return -1
 
 
@@ -196,7 +196,7 @@ def set_rotation(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_rotation(args[0] == 'enable')
 
-    print('usage: {} rotation (enable|disable)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} rotation (enable|disable)')
     return -1
 
 
@@ -206,7 +206,7 @@ def set_hfd(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_hfd(args[0] == 'enable')
 
-    print('usage: {} hfd (enable|disable)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} hfd (enable|disable)')
     return -1
 
 
@@ -216,7 +216,7 @@ def set_hfd_grid(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_hfd_grid(args[0] == 'enable')
 
-    print('usage: {} hfdgrid (enable|disable)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} hfdgrid (enable|disable)')
     return -1
 
 
@@ -226,7 +226,7 @@ def set_intensity_stats(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_intensity_stats(args[0] == 'enable')
 
-    print('usage: {} intstats (enable|disable)'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} intstats (enable|disable)')
     return -1
 
 
@@ -234,7 +234,7 @@ def register_preview(config, args):
     """Open a new ds9 preview window and register it with the server"""
     cameras = camera_ids(config)
     if len(args) != 1 or args[0] not in cameras:
-        print('usage: {} preview ({})'.format(SCRIPT_NAME, '|'.join(cameras)))
+        print(f"usage: {SCRIPT_NAME} preview ({'|'.join(cameras)})")
         return -1
 
     camera_id = cameras[args[0]]
@@ -243,7 +243,7 @@ def register_preview(config, args):
         # Generate a random name to avoid collisions
         names = pyds9.ds9_targets()
         while True:
-            name = 'preview-{}-{:06d}'.format(camera_id, random.randint(0, 999999))
+            name = f'preview-{camera_id}-{random.randint(0, 999999):06d}'
             if names is None or not any(n.startswith('DS9:'+name) for n in names):
                 break
 
@@ -257,10 +257,10 @@ def register_preview(config, args):
         ds9.set('view colorbar no')
         ds9.set('view layout vertical')
         ds9.set('scale mode zscale')
-        ds9.set('width {}'.format(config.cameras[camera_id]['preview_ds9_width']))
-        ds9.set('height {}'.format(config.cameras[camera_id]['preview_ds9_height']))
+        ds9.set(f"width {config.cameras[camera_id]['preview_ds9_width']}")
+        ds9.set(f"height {config.cameras[camera_id]['preview_ds9_height']}")
         ds9.set('background black')
-        ds9.set('zoom {}'.format(config.cameras[camera_id]['preview_ds9_zoom']))
+        ds9.set(f"zoom {config.cameras[camera_id]['preview_ds9_zoom']}")
     except Exception:
         traceback.print_exc(file=sys.stdout)
         print('error: failed to open DS9 preview window')
@@ -275,7 +275,7 @@ def register_preview(config, args):
 
 def print_usage():
     """Prints the utility help"""
-    print('usage: {} <command> [<args>]'.format(SCRIPT_NAME))
+    print(f'usage: {SCRIPT_NAME} <command> [<args>]')
     print()
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')

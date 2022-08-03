@@ -19,8 +19,8 @@
 
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-branches
-# pylint: disable=too-many-nested-blocks
-# pylint: disable=too-many-boolean-expressions
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
 
 
 import argparse
@@ -156,8 +156,8 @@ def add_telescope_header(header, info, log_name, telescope_cards, telescope_quer
             continue
 
         try:
-            with card['daemon'].connect(telescope_query_timeout) as daemon:
-                data[key] = getattr(daemon, card['method'])()
+            with card['daemon'].connect(telescope_query_timeout) as d:
+                data[key] = getattr(d, card['method'])()
         except Exception as e:
             log.error(log_name, 'Failed to query telescope metadata (' + str(e) + ')')
             sys.stdout.flush()
@@ -277,7 +277,7 @@ def add_wcs_header(header, info, objects, config):
         wcs_data = ''
         wcs_ignore_cards = ['SIMPLE', 'BITPIX', 'NAXIS', 'EXTEND', 'DATE', 'IMAGEW', 'IMAGEH']
         comment = 'astrometry.net wcs solution'
-        with open(wcs_path) as wcs_file:
+        with open(wcs_path, encoding='ascii') as wcs_file:
             h = wcs_file.read()
             # ds9 will only accept newline-delimited keys
             # so we need to reformat the 80-character cards
@@ -301,10 +301,10 @@ def add_wcs_header(header, info, objects, config):
             north_angle = np.degrees(np.arctan2(np.diff(coords[1]), np.diff(coords[0]))).item()
             annotations.append(('regions', ANNOTATION_LABEL.format(
                 width / 5, -2 * config['preview_ds9_annotation_margin'],
-                'ROT: North is {:.1f} deg CCW of +X'.format(north_angle))))
+                f'ROT: North is {north_angle:.1f} deg CCW of +X')))
 
         return annotations
-    except Exception as e:
+    except Exception:
         print('failed to update wcs with error: ')
         traceback.print_exc(file=sys.stdout)
         sys.stdout.flush()
@@ -404,7 +404,7 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config):
         sys.stdout.flush()
 
 
-def generate_header_annotations(header, info, objects, config):
+def generate_header_annotations(header, info, config):
     """Returns the XPA commands to display the time and exposure on the live previews"""
     width = header['NAXIS1']
     height = header['NAXIS2']
@@ -415,7 +415,7 @@ def generate_header_annotations(header, info, objects, config):
     annotations = [
         ('regions', ANNOTATION_LABEL.format(width / 4, height + config['preview_ds9_annotation_margin'], date)),
         ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + config['preview_ds9_annotation_margin'],
-                                            '{} @ {:.1f}s'.format(info['camera_id'], exptime))),
+                                            f"{info['camera_id']} @ {exptime:.1f}s")),
         ('regions', ANNOTATION_LABEL.format(width / 2, -config['preview_ds9_annotation_margin'], saved))
     ]
 
@@ -445,10 +445,11 @@ def generate_hfd_grid_annotations(header, objects, config):
             ])
             # pylint: enable=no-member
 
-            annotations.append(('regions', 'box({0:.6f},{1:.6f},{2},{3}) # color=yellow'.format(
-                (i + 0.5) * x_step, (j + 0.5) * y_step, x_step, y_step)))
-            annotations.append(('regions', 'text {0:.6f} {1:.6f} # color=green text="{2:.2f}"'.format(
-                (i + 0.5) * x_step, (j + 0.5) * y_step, np.median(objects['HFD_ARCSEC'][filt]))))
+            x = (i + 0.5) * x_step
+            y = (j + 0.5) * y_step
+            median = np.median(objects['HFD_ARCSEC'][filt])
+            annotations.append(('regions', f'box({x:.6f},{y:.6f},{x_step},{y_step}) # color=yellow'))
+            annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
 
     return annotations
 
@@ -491,7 +492,7 @@ def update_dashboard(header, data, config):
         preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
 
         json_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '.json')
-        with open(json_path, 'w') as outfile:
+        with open(json_path, 'w', encoding='utf-8') as outfile:
             json.dump(metadata, outfile)
     except Exception:
         print('failed to generate dashboard preview with error:')
@@ -533,8 +534,7 @@ def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
         data, header, annotations = preview_queue.get()
 
         with ds9_preview_xpa_lock:
-            for i in range(len(ds9_preview_ports)):
-                port = ds9_preview_ports[i]
+            for i, port in enumerate(ds9_preview_ports):
                 if port == 0:
                     continue
 
@@ -561,7 +561,7 @@ def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
                         ])
 
                     ds9_preview_ports[i] = 0
-                    print('unregistering preview {}: {}'.format(port, e), flush=True)
+                    print(f'unregistering preview {port}: {e}', flush=True)
 
 
 def process_frames(processing_queue, camera_config,
@@ -694,7 +694,7 @@ def process_frames(processing_queue, camera_config,
 
             # Update previews before the relatively-slow WCS step
             if preview_stale:
-                annotations = generate_header_annotations(header, info, objects, camera_config)
+                annotations = generate_header_annotations(header, info, camera_config)
                 preview_queue.put((data_raw, header, annotations))
 
             if info['wcs_enabled'] or info['rotation_enabled']:
@@ -722,7 +722,7 @@ def process_frames(processing_queue, camera_config,
                     while len(header) > 36 * header_block_capacity - 1:
                         truncated += 1
                         header.pop()
-                    header.append(fits.Card('COMMENT', ' WARNING: {} header cards truncated'.format(truncated), ''))
+                    header.append(fits.Card('COMMENT', f' WARNING: {truncated} header cards truncated', ''))
 
                 # It is very likely that we will have more than 36 cards of unused capacity if WCS solutions
                 # are disabled. The fits specification requires that the END card is within the block immediately
@@ -857,7 +857,7 @@ class PipelineWorkerDaemon:
                     subprocess.check_call([
                         'ssh', '-MfN',
                         '-S', socket_path,
-                        '-L', '{0}:127.0.0.1:{0}'.format(port),
+                        '-L', f'{port}:127.0.0.1:{port}',
                         '-o', 'ExitOnForwardFailure=yes',
                         host
                     ])

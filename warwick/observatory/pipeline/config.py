@@ -283,7 +283,7 @@ class Config:
     """Daemon configuration parsed from a json file"""
     def __init__(self, config_filename, validate_camera=None):
         # Will throw on file not found or invalid json
-        with open(config_filename, 'r') as config_file:
+        with open(config_filename, 'r', encoding='utf-8') as config_file:
             config_json = json.load(config_file)
 
         # Will throw on schema violations
