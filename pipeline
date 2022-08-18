@@ -25,7 +25,6 @@ import os
 import random
 import sys
 import traceback
-import pyds9
 import Pyro4
 from warwick.observatory.common import TFmt
 from warwick.observatory.pipeline import CommandStatus, Config
@@ -240,6 +239,10 @@ def register_preview(config, args):
     camera_id = cameras[args[0]]
 
     try:
+        # This import may stall if there are issues with the network.
+        # Import this only when we need it to avoid delaying the other commands
+        import pyds9
+
         # Generate a random name to avoid collisions
         names = pyds9.ds9_targets()
         while True:
