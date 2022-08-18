@@ -276,6 +276,12 @@ def register_preview(config, args):
         return pipeline.register_preview(camera_id, port)
 
 
+def reset(config, _):
+    """Reset to the default pipeline configuration"""
+    with config.daemon.connect() as pipeline:
+        return pipeline.configure({}, quiet=True)
+
+
 def print_usage():
     """Prints the utility help"""
     print(f'usage: {SCRIPT_NAME} <command> [<args>]')
@@ -283,6 +289,7 @@ def print_usage():
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
     print('   preview      open a ds9 window to preview acquired frames')
+    print('   reset        reset to the default pipeline configuration')
     print('output frame commands')
     print('   archive      enable or disable frame archiving')
     print('   subdir       set archive subdirectory')
@@ -304,6 +311,7 @@ if __name__ == '__main__':
     commands = {
         'status': print_status,
         'preview': register_preview,
+        'reset': reset,
         'archive': set_archive,
         'subdir': set_archive_subdirectory,
         'prefix': set_prefix,
