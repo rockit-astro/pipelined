@@ -260,9 +260,9 @@
       "key": "ROOFSTAT",
       "comment": "roof status",
       "type": "string",
-      "daemon": "superwasp_telescope",
-      "method": "report_status",
-      "parameter": "roof_state_label"
+      "daemon": "superwasp_roof",
+      "method": "status",
+      "parameter": "status_label"
     },
     {
       "key": "TELRA",
