@@ -293,7 +293,7 @@ class PipelineDaemon:
               prefix: Filename prefix for each image
               type: Science/Calibration/Junk/etc
               object: Object name to include for Science frames
-              archive: Dictionary of instrument arm to bool for which images to archive
+              archive: Array of instrument arm names for which to enable image archiving
               wcs: Attempt to solve WCS coordinates (True/False)
               intstats: Calculate basic intensity statistics (True/False)
               hfd: Calculate median half-flux diameters from objects in the image (True/False)
@@ -326,11 +326,11 @@ class PipelineDaemon:
             if not quiet:
                 log.info(self._config.log_name, 'Frame object set to ' + self._frame_object)
 
-            for k, v in params.get('archive', {cam: False for cam in self._config.cameras}).items():
-                self._output_save_to_disk[k] = v
+            archive = params.get('archive', [])
+            for camera_id in self._config.cameras:
+                self._output_save_to_disk[camera_id] = camera_id in archive
                 if not quiet:
-                    log.info(self._config.log_name, 'Frame archiving for ' + k +
-                             (' enabled' if v else ' disabled'))
+                    log.info(self._config.log_name, f'Frame archiving for {camera_id} enabled')
 
             self._wcs_enabled = params.get('wcs', False)
             if not quiet:
