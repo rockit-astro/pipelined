@@ -408,14 +408,20 @@ def generate_header_annotations(header, info, config):
     """Returns the XPA commands to display the time and exposure on the live previews"""
     width = header['NAXIS1']
     height = header['NAXIS2']
-    date = header['DATE-OBS']
-    exptime = header['EXPTIME']
+    timestamp = header['DATE-OBS']
+    time_src = header.get('TIME-SRC', None)
+    if time_src:
+        timestamp += f' ({time_src})'
+
+    exptime = f'{info["camera_id"]} @ {header["EXPTIME"]:.3f}s'
+    cam_transfer = header.get('CAM-TFER', None)
+    if cam_transfer:
+        exptime += f' ({cam_transfer})'
 
     saved = 'SAVED' if 'FILENAME' in header else 'NOT SAVED'
     annotations = [
-        ('regions', ANNOTATION_LABEL.format(width / 4, height + config['preview_ds9_annotation_margin'], date)),
-        ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + config['preview_ds9_annotation_margin'],
-                                            f"{info['camera_id']} @ {exptime:.3f}s")),
+        ('regions', ANNOTATION_LABEL.format(width / 4, height + config['preview_ds9_annotation_margin'], timestamp)),
+        ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + config['preview_ds9_annotation_margin'], exptime)),
         ('regions', ANNOTATION_LABEL.format(width / 2, -config['preview_ds9_annotation_margin'], saved))
     ]
 
