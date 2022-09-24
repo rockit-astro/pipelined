@@ -237,6 +237,27 @@
       "sensor": "tng",
       "parameter": "dust",
       "type": "float1dp"
+    },
+    {
+      "key": "SUNALT",
+      "comment": "[deg] sun altitude",
+      "sensor": "ephem",
+      "parameter": "sun_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONALT",
+      "comment": "[deg] moon altitude",
+      "sensor": "ephem",
+      "parameter": "moon_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONPCT",
+      "comment": "[%] moon illumination",
+      "sensor": "ephem",
+      "parameter": "moon_percent_illumination",
+      "type": "float1dp"
     }
   ],
   "telescope_cards": [
