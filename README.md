@@ -36,7 +36,11 @@ The configuration options are:
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
-      "dashboard_output_path": "/mnt/dashboard-generated", # The path to save generated preview data to display on the dashboard (usually an nfs mount).
+      "dashboard_user": "ops",
+      "dashboard_key": "dashboard",
+      "dashboard_remote_user": "dashboarddata",
+      "dashboard_remote_host": "GOTOServer",
+      "dashboard_remote_path": "/srv/dashboard/generated",
       "dashboard_prefix": "dashboard-CAM1", # The filename prefix to use for generated preview data.
       "wcs_scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
       "wcs_scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.

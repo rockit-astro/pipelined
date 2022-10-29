@@ -45,11 +45,13 @@ from astropy.time import Time
 import astropy.units as u
 from astropy.wcs import WCS
 import numpy as np
+from paramiko import SSHClient, RSAKey
 from PIL import Image, ImageOps
 import pyds9
 import Pyro4
+from scp import SCPClient
 import sep
-from warwick.observatory.common import daemons, log
+from warwick.observatory.common import daemons, log, IP
 from warwick.observatory.common.helpers import pyro_client_matches
 from warwick.observatory.pipeline import CommandStatus, Config
 
@@ -462,44 +464,59 @@ def generate_hfd_grid_annotations(header, objects, config):
 
 def update_dashboard(header, data, config):
     try:
-        size = np.shape(data)
-        metadata = {
-            'date': header['DATE-OBS'],
-            'exptime': header['EXPTIME'],
-            'saved': header['FILESAVE'],
-            'filename': header['FILENAME'] if 'FILENAME' in header else '',
-            'size': [size[1], size[0]],
-            'clipsize': config['dashboard_clip_size'],
-        }
+        with tempfile.TemporaryDirectory() as path:
+            size = np.shape(data)
+            metadata = {
+                'date': header['DATE-OBS'],
+                'exptime': header['EXPTIME'],
+                'saved': header['FILESAVE'],
+                'filename': header['FILENAME'] if 'FILENAME' in header else '',
+                'size': [size[1], size[0]],
+                'clipsize': config['dashboard_clip_size'],
+            }
 
-        scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
-        preview = Image.fromarray(scaled).convert('RGB')
-        if config['dashboard_flip_vertical']:
+            scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
+            preview = Image.fromarray(scaled).convert('RGB')
+            if config['dashboard_flip_vertical']:
+                preview = ImageOps.flip(preview)
+            if config['dashboard_flip_horizontal']:
+                preview = ImageOps.mirror(preview)
+
+            preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
+            thumb_path = os.path.join(path, config['dashboard_prefix']+ '-thumb.jpg')
+            preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
+
+            # Clip the central region from the image
+            cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
+            cx2 = cx1 + config['dashboard_clip_size']
+            cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
+            cy2 = cy1 + config['dashboard_clip_size']
+
+            clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
+                                         config['dashboard_min_threshold'],
+                                         config['dashboard_max_threshold'])
+            preview = Image.fromarray(clipped).convert('RGB')
             preview = ImageOps.flip(preview)
-        if config['dashboard_flip_horizontal']:
-            preview = ImageOps.mirror(preview)
+            clip_path = os.path.join(path, config['dashboard_prefix'] + '-clip.jpg')
+            preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
 
-        preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
-        thumb_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix']+ '-thumb.jpg')
-        preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
+            json_path = os.path.join(path, config['dashboard_prefix'] + '.json')
+            with open(json_path, 'w', encoding='utf-8') as outfile:
+                json.dump(metadata, outfile)
 
-        # Clip the central region from the image
-        cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
-        cx2 = cx1 + config['dashboard_clip_size']
-        cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
-        cy2 = cy1 + config['dashboard_clip_size']
+            with open(f'/home/{config["dashboard_user"]}/.ssh/{config["dashboard_key"]}', encoding='utf-8') as keyfile:
+                key = RSAKey.from_private_key(keyfile)
 
-        clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
-                                     config['dashboard_min_threshold'],
-                                     config['dashboard_max_threshold'])
-        preview = Image.fromarray(clipped).convert('RGB')
-        preview = ImageOps.flip(preview)
-        clip_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '-clip.jpg')
-        preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+            with SSHClient() as ssh:
+                ssh.load_system_host_keys(f'/home/{config["dashboard_user"]}/.ssh/known_hosts')
+                ssh.connect(getattr(IP, config['dashboard_remote_host']),
+                            username=config['dashboard_remote_user'], pkey=key)
 
-        json_path = os.path.join(config['dashboard_output_path'], config['dashboard_prefix'] + '.json')
-        with open(json_path, 'w', encoding='utf-8') as outfile:
-            json.dump(metadata, outfile)
+                with SCPClient(ssh.get_transport()) as scp:
+                    scp.put(thumb_path, remote_path=config['dashboard_remote_path'])
+                    scp.put(clip_path, remote_path=config['dashboard_remote_path'])
+                    scp.put(json_path, remote_path=config['dashboard_remote_path'])
+
     except Exception:
         print('failed to generate dashboard preview with error:')
         traceback.print_exc(file=sys.stdout)

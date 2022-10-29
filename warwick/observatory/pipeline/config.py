@@ -159,7 +159,8 @@ CAMERA_CONFIG_SCHEMA = {
     'required': [
         'worker_daemon', 'worker_processes',
         'input_data_path', 'output_data_path',
-        'dashboard_output_path', 'dashboard_prefix',
+        'dashboard_user', 'dashboard_key', 'dashboard_remote_user',
+        'dashboard_remote_host', 'dashboard_remote_path', 'dashboard_prefix',
         'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
         'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
         'platescale', 'image_region_card', 'object_minpix',
@@ -187,9 +188,21 @@ CAMERA_CONFIG_SCHEMA = {
             'type': 'string',
             'directory_path': True
         },
-        'dashboard_output_path': {
+        'dashboard_user': {
             'type': 'string',
-            'directory_path': True
+        },
+        'dashboard_key': {
+            'type': 'string',
+        },
+        'dashboard_remote_user': {
+            'type': 'string',
+        },
+        'dashboard_remote_host': {
+            'type': 'string',
+            'machine_name': True
+        },
+        'dashboard_remote_path': {
+            'type': 'string',
         },
         'dashboard_prefix': {
             'type': 'string'

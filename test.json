@@ -9,7 +9,6 @@
   "ops_daemon": "localhost_test5",
   "data_root_path": "/home/ops",
   "incoming_data_path": "/var/tmp",
-  "dashboard_output_path": "/home/ops",
   "cameras": {
     "CAM2": {
       "wcs_scale_high": 3.5,
