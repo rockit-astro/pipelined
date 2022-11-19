@@ -1,5 +1,5 @@
 Name:      superwasp-pipeline-data
-Version:   20221029
+Version:   20221119
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline configuration for the SuperWASP telescope.
