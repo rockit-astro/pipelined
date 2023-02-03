@@ -849,7 +849,7 @@ class PipelineWorkerDaemon:
         self._processing_queue.put(info)
 
     @Pyro4.expose
-    def register_preview(self, host, port):
+    def register_preview(self, user, host, port):
         """Register a ds9 window for previews"""
         if not pyro_client_matches([self._config.daemon.host]):
             return CommandStatus.InvalidControlIP
@@ -882,7 +882,7 @@ class PipelineWorkerDaemon:
                         '-S', socket_path,
                         '-L', f'{port}:127.0.0.1:{port}',
                         '-o', 'ExitOnForwardFailure=yes',
-                        host
+                        f'{user}@{host}'
                     ])
 
                     subprocess.check_call([

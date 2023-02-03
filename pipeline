@@ -273,7 +273,7 @@ def register_preview(config, args):
         # Note: If the server is running on a different machine a ssh tunnel will be created
         # back to this client machine. This requires that key-based ssh has been configured
         # from the server machine to this client machine.
-        return pipeline.register_preview(camera_id, port)
+        return pipeline.register_preview(camera_id, os.getlogin(), port)
 
 
 def reset(config, _):
