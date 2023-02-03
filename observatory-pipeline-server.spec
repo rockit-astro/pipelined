@@ -1,5 +1,5 @@
 Name:      observatory-pipeline-server
-Version:   20221029
+Version:   20230203
 Release:   0
 Url:       https://github.com/warwick-one-metre/pipelined
 Summary:   Data pipeline server.
@@ -7,8 +7,8 @@ License:   GPL-3.0
 Group:     Unspecified
 BuildArch: noarch
 Requires:  nfs-utils
-Requires:  python3, python3-Pyro4, python3-astropy, python3-pyds9, python3-sep, python3-pillow, python3-paramiko, python3-scp
-Requires:  python3-warwick-observatory-common, python3-warwick-observatory-pipeline, %{?systemd_requires}
+Requires:  python3 python3-Pyro4 python3-astropy python3-pyds9 python3-sep python3-pillow python3-paramiko python3-scp
+Requires:  python3-warwick-observatory-common python3-warwick-observatory-pipeline astrometry-net
 
 %description
 

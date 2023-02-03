@@ -253,7 +253,7 @@ def add_wcs_header(header, info, objects, config):
             pass
 
         wcs_args = [
-            '/usr/local/astrometry/bin/solve-field',
+            '/usr/bin/solve-field',
             '--overwrite', '--no-plots',
             '--axy', 'none', '--rdls', 'none', '--match', 'none',
             '--corr', 'none', '--solved', 'none',
