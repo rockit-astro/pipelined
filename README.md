@@ -100,14 +100,15 @@ The configuration options are:
 
 The automated packaging scripts will push 6 RPM packages to the observatory package repository:
 
-| Package           | Description |
-| ----------------- | ------ |
-| observatory-pipeline-server | Contains the `pipelined` and `pipeline_workerd` servers and systemd service file. |
-| observatory-pipeline-client | Contains the `pipeline` commandline utility for controlling the pipeline server. |
-| python3-warwick-observatory-pipeline | Contains the python module with shared code. |
-| onemetre-pipeline-data | Contains the json configuration for the W1m pipeline installation. |
-| clasp-pipeline-data | Contains the json configuration for the CLASP pipeline installation. |
-| superwasp-pipeline-data | Contains the json configuration for the SuperWASP pipeline installation. |
+| Package                              | Description                                                                       |
+|--------------------------------------|-----------------------------------------------------------------------------------|
+| observatory-pipeline-server          | Contains the `pipelined` and `pipeline_workerd` servers and systemd service file. |
+| observatory-pipeline-client          | Contains the `pipeline` commandline utility for controlling the pipeline server.  |
+| python3-warwick-observatory-pipeline | Contains the python module with shared code.                                      |
+| onemetre-pipeline-data               | Contains the json configuration for the W1m pipeline installation.                |
+| clasp-pipeline-data                  | Contains the json configuration for the CLASP pipeline installation.              |
+| halfmetre-pipeline-data              | Contains the json configuration for the Half metre pipeline installation.         |
+| superwasp-pipeline-data              | Contains the json configuration for the SuperWASP pipeline installation.          |
 
 The `observatory-pipeline-server` and `observatory-pipeline-client` and `onemetre-pipeline-data` packages should be installed on the `onemetre-tcs` TCS machine.
 

@@ -12,6 +12,7 @@ all:
 	${RPMBUILD} -ba onemetre-pipeline-data.spec
 	${RPMBUILD} -ba clasp-pipeline-data.spec
 	${RPMBUILD} -ba superwasp-pipeline-data.spec
+	${RPMBUILD} -ba halfmetre-pipeline-data.spec
 	mv build/noarch/*.rpm .
 	rm -rf build
 

@@ -36,6 +36,7 @@ jobs:
           rocky-packages/set-spec-release.sh python3-warwick-observatory-pipeline.spec
           rocky-packages/set-spec-release.sh onemetre-pipeline-data.spec
           rocky-packages/set-spec-release.sh clasp-pipeline-data.spec
+          rocky-packages/set-spec-release.sh halfmetre-pipeline-data.spec
           rocky-packages/set-spec-release.sh superwasp-pipeline-data.spec
 
       - name: Package RPMs
