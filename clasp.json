@@ -66,6 +66,7 @@
       "wcs_search_radius": 1.75,
       "ccd_bin_card": "CCD-XBIN",
       "image_region_card": "IMAG-RGN",
+      "spatial_median": 3,
       "platescale": 2.62,
       "object_minpix": 16,
       "preview_min_interval": 5,

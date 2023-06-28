@@ -169,7 +169,7 @@ CAMERA_CONFIG_SCHEMA = {
         'dashboard_flip_vertical', 'dashboard_flip_horizontal',
         'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
         # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
-        #       overscan_region_card, ccd_bin_card are optional
+        #       spatial_median, overscan_region_card, ccd_bin_card are optional
     ],
     'properties': {
         'worker_daemon': {
@@ -236,6 +236,9 @@ CAMERA_CONFIG_SCHEMA = {
         },
         'platescale': {
             'type': 'number'
+        },
+        'spatial_median': {
+            'type': 'integer'
         },
         'object_minpix': {
             'type': 'integer'
