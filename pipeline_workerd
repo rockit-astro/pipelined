@@ -49,7 +49,6 @@ from paramiko import SSHClient, RSAKey
 from PIL import Image, ImageOps
 import pyds9
 import Pyro4
-from scipy.ndimage import median_filter
 from scp import SCPClient
 import sep
 from warwick.observatory.common import daemons, log, IP
@@ -666,10 +665,6 @@ def process_frames(processing_queue, camera_config,
             if calculate_cropped or preview_stale:
                 data_raw, header = fits.getdata(loadpath, header=True)
                 steps.append('data')
-                median = camera_config.get('spatial_median', 0)
-                if median > 1:
-                    data_raw = median_filter(data_raw, size=median)
-                    steps.append('median')
             else:
                 header = fits.getheader(loadpath)
 
