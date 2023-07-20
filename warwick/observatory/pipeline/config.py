@@ -287,6 +287,13 @@ CAMERA_CONFIG_SCHEMA = {
         'hfd_grid_tiles_y': {
             'type': 'integer',
             'minimum': 1
+        },
+        'master_bias_path': {
+            'type': 'string'
+        }
+        ,
+        'master_dark_path': {
+            'type': 'string'
         }
     }
 }

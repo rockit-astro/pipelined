@@ -82,7 +82,9 @@
       "dashboard_clip_size": 1024,
       "dashboard_min_interval": 30,
       "hfd_grid_tiles_x": 5,
-      "hfd_grid_tiles_y": 4
+      "hfd_grid_tiles_y": 4,
+      "master_bias_path": "/etc/pipelined/master-bias-CAM2.fits.gz",
+      "master_dark_path": "/etc/pipelined/master-dark-CAM2.fits.gz"
     }
   },
   "environment_cards": [

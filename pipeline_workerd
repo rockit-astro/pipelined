@@ -381,7 +381,7 @@ def add_hfd_header(header, objects):
         sys.stdout.flush()
 
 
-def add_intensity_stats_header(header, data_raw, data_cropped, config):
+def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bias_stats):
     """Adds the frame intensity to the frame header"""
     try:
         header.append(create_float_card('MEANCNTS', np.mean(data_cropped),
@@ -399,6 +399,13 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config):
                                             '[adu] median overscan bias counts', 2), end=True)
             header.append(create_float_card('STDBIAS', np.std(bias),
                                             '[adu] overscan bias standard deviation', 2), end=True)
+        elif master_bias_stats:
+            header.append(create_float_card('MEANBIAS', master_bias_stats['mean'],
+                                            '[adu] nominal mean bias counts', 2), end=True)
+            header.append(create_float_card('MEDBIAS', master_bias_stats['median'],
+                                            '[adu] nominal median bias counts', 2), end=True)
+            header.append(create_float_card('STDBIAS', master_bias_stats['std'],
+                                            '[adu] nominal bias standard deviation', 2), end=True)
 
     except Exception:
         print('failed to calculate intensity stats with error: ')
@@ -608,6 +615,25 @@ def process_frames(processing_queue, camera_config,
                      args=(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock)
                      ).start()
 
+    # Apply bias/dark corrections if required
+    if 'master_bias_path' in camera_config:
+        master_bias = fits.getdata(camera_config['master_bias_path']).astype(float)
+        master_bias_stats = {
+            'median': np.median(master_bias),
+            'mean': np.median(master_bias),
+            'std': np.std(master_bias)
+        }
+
+        # Normalize to just the pixel non-uniformity
+        master_bias_pixel_nonuniformity = master_bias - master_bias_stats['median']
+    else:
+        master_bias_pixel_nonuniformity = None
+
+    if 'master_dark_path' in camera_config:
+        master_dark_adu_per_sec = fits.getdata(camera_config['master_dark_path'])
+    else:
+        master_dark_adu_per_sec = None
+
     while True:
         # Blocks until a frame is available for processing
         info = processing_queue.get()
@@ -664,7 +690,24 @@ def process_frames(processing_queue, camera_config,
             calculate_cropped = calculate_bgsubtracted or info['intensity_stats_enabled'] or dashboard_stale
             if calculate_cropped or preview_stale:
                 data_raw, header = fits.getdata(loadpath, header=True)
+                data_raw_float = None
                 steps.append('data')
+
+                if master_bias_pixel_nonuniformity is not None or master_dark_adu_per_sec is not None:
+                    data_raw_dtype = data_raw.dtype
+                    data_raw_float = data_raw.astype(float)
+
+                    # Correct for bias pattern
+                    if master_bias_pixel_nonuniformity is not None:
+                        data_raw_float -= master_bias_pixel_nonuniformity
+                        steps.append('bias')
+
+                    # Correct for hot pixels
+                    if master_dark_adu_per_sec is not None:
+                        data_raw_float -= header['EXPTIME'] * master_dark_adu_per_sec
+                        steps.append('dark')
+
+                    data_raw = data_raw_float.astype(data_raw_dtype)
             else:
                 header = fits.getheader(loadpath)
 
@@ -680,7 +723,10 @@ def process_frames(processing_queue, camera_config,
                 steps.append('crop')
 
             if calculate_bgsubtracted:
-                data_bgsubtracted = data_cropped.astype(float)
+                if data_raw_float is not None:
+                    data_bgsubtracted = data_raw_float
+                else:
+                    data_bgsubtracted = data_cropped.astype(float)
                 data_background = sep.Background(data_bgsubtracted)
                 data_background.subfrom(data_bgsubtracted)
                 steps.append('background')
@@ -702,7 +748,7 @@ def process_frames(processing_queue, camera_config,
             add_pipeline_header(header, info, output_filename)
 
             if info['intensity_stats_enabled']:
-                add_intensity_stats_header(header, data_raw, data_cropped, camera_config)
+                add_intensity_stats_header(header, data_raw, data_cropped, camera_config, master_bias_stats)
                 steps.append('intstats')
 
             objects = None
