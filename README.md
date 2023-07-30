@@ -19,9 +19,9 @@ A configuration file is specified when launching the server, and the `pipeline` 
 The configuration options are:
 ```python
 {
-  "daemon": "localhost_test2", # Run the server as this daemon. Daemon types are registered in `warwick.observatory.common.daemons`.
+  "daemon": "localhost_test2", # Run the server as this daemon. Daemon types are registered in `rockit.common.daemons`.
   "log_name": "pipelined@test", # The name to use when writing messages to the observatory log.
-  "control_machines": ["LocalHost"],  # Machine names that are allowed to control (rather than just query) state. Machine names are registered in `warwick.observatory.common.IP`.
+  "control_machines": ["LocalHost"],  # Machine names that are allowed to control (rather than just query) state. Machine names are registered in `rockit.common.IP`.
   "notify_frame_machines": ["LocalHost"], # Machine names that are running camera daemons that should be processed by this server.
   "environment_daemon": "localhost_test4", # The daemon that should be queried to fetch environment data. See environmentd project.
   "environment_query_timeout": 1, # The maximum timeout when querying environment data. Frame headers will be marked as not available if this expires.
@@ -30,7 +30,7 @@ The configuration options are:
   "guiding_min_interval": 5, # The minimum interval (in seconds) between autoguider update calculations.
   "cameras": {
     "TEST": {
-      "worker_daemon": "localhost_test3", # Run the worker service as this daemon. Daemon types are registered in `warwick.observatory.common.daemons`.
+      "worker_daemon": "localhost_test3", # Run the worker service as this daemon. Daemon types are registered in `rockit.common.daemons`.
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
