@@ -11,8 +11,6 @@ The actual processing is done by `pipeline_workerd`, which runs as a separate da
 
 `pipeline` is a commandline utility for configuring the pipeline.
 
-See [Software Infrastructure](https://github.com/warwick-one-metre/docs/wiki/Software-Infrastructure) for an overview of the observatory software architecture and instructions for developing and deploying the code.
-
 ### Configuration
 
 Configuration is read from json files that are installed by default to `/etc/pipelined`.
@@ -36,11 +34,11 @@ The configuration options are:
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
-      "dashboard_user": "ops",
-      "dashboard_key": "dashboard",
-      "dashboard_remote_user": "dashboarddata",
-      "dashboard_remote_host": "GOTOServer",
-      "dashboard_remote_path": "/srv/dashboard/generated",
+      "dashboard_user": "ops", # User on the local machine that owns the SSH key for copying files to the dashboard
+      "dashboard_key": "dashboard", # SSH key file to use for copying files to the dashboard
+      "dashboard_remote_host": "GOTOServer", # Dashboard host machine
+      "dashboard_remote_user": "dashboarddata", # User on the dashboard host to log in as
+      "dashboard_remote_path": "/srv/dashboard/generated", # Directory on the dashboard host to copy files to
       "dashboard_prefix": "dashboard-CAM1", # The filename prefix to use for generated preview data.
       "wcs_scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
       "wcs_scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.
@@ -100,27 +98,20 @@ The configuration options are:
 
 The automated packaging scripts will push 6 RPM packages to the observatory package repository:
 
-| Package                              | Description                                                                       |
-|--------------------------------------|-----------------------------------------------------------------------------------|
-| observatory-pipeline-server          | Contains the `pipelined` and `pipeline_workerd` servers and systemd service file. |
-| observatory-pipeline-client          | Contains the `pipeline` commandline utility for controlling the pipeline server.  |
-| python3-warwick-observatory-pipeline | Contains the python module with shared code.                                      |
-| onemetre-pipeline-data               | Contains the json configuration for the W1m pipeline installation.                |
-| clasp-pipeline-data                  | Contains the json configuration for the CLASP pipeline installation.              |
-| halfmetre-pipeline-data              | Contains the json configuration for the Half metre pipeline installation.         |
-| superwasp-pipeline-data              | Contains the json configuration for the SuperWASP pipeline installation.          |
-
-The `observatory-pipeline-server` and `observatory-pipeline-client` and `onemetre-pipeline-data` packages should be installed on the `onemetre-tcs` TCS machine.
-
-The `observatory-pipeline-server` and `observatory-pipeline-client` and `clasp-pipeline-data` packages should be installed on the `clasp-tcs` TCS machine.
-
-The `observatory-pipeline-server` and `observatory-pipeline-client` and `superwasp-pipeline-data` packages should be installed on the `superwasp-tcs` TCS machine.
+| Package                        | Description                                                                       |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| rockit-pipeline-server         | Contains the `pipelined` and `pipeline_workerd` servers and systemd service file. |
+| rockit-pipeline-client         | Contains the `pipeline` commandline utility for controlling the pipeline server.  |
+| rockit-pipeline-data-clasp     | Contains the json configuration for the CLASP pipeline installation.              |
+| rockit-pipeline-data-halfmetre | Contains the json configuration for the Half metre pipeline installation.         |
+| rockit-pipeline-data-onemetre  | Contains the json configuration for the W1m pipeline installation.                |
+| rockit-pipeline-data-superwasp | Contains the json configuration for the SuperWASP pipeline installation.          |
+| python3-rockit-pipeline        | Contains the python module with shared code.                                      |
 
 After installing packages, the main systemd service should be enabled:
 
 ```
-sudo systemctl enable pipelined@<telescope>
-sudo systemctl start pipelined@<telescope>
+sudo systemctl enable --now pipelined@<telescope>
 ```
 
 where `telescope` is the name of the json file for the appropriate telescope.
@@ -128,8 +119,7 @@ where `telescope` is the name of the json file for the appropriate telescope.
 Enable the systemd services for each camera worker:
 
 ```
-sudo systemctl enable pipeline_workerd@<telescope_camera>
-sudo systemctl start pipeline_workerd@<telescope_camera>
+sudo systemctl enable --now pipeline_workerd@<telescope_camera>
 ```
 
 where `telescope` is the name of the json file for the appropriate telescope and camera is the camera ID.
@@ -140,36 +130,9 @@ Now open a port in the firewall:
 sudo firewall-cmd --zone=public --add-port=<port>/tcp --permanent
 sudo firewall-cmd --reload
 ```
-where `port` is the port defined in `warwick.observatory.common.daemons` for the daemon specified in the pipeline config.
-
-Finally, we need to set up NFS to mount the gotoserver dashboard generated directory so that we can write live data previews.
-Edit `/etc/fstab` and add
-```
-10.2.6.100:/srv/dashboard/generated /mnt/dashboard-generated/   nfs defaults 0 0
-```
-then reboot.
+where `port` is the port defined in `rockit.common.daemons` for the daemon specified in the pipeline config.
 
 If you want to run ds9 previews from *another* machine (e.g. `onemetre-dome`) then you will need to make sure that the machine running the server can connect to the client machine over ssh (to establish a tunnel) without requiring manual input. Set up login keys and host config as needed.
-
-The SuperWASP TCS should export a data partition for the camera pis to write to.
-
-Edit `/etc/exports` and add:
-
-```
-/data/wasp   10.2.6.120(rw,sync,no_root_squash,no_all_squash) 10.2.6.121(rw,sync,no_root_squash,no_all_squash)
-```
-
-Next enable the NFS daemons:
-```
-sudo systemctl enable rpcbind
-sudo systemctl enable nfs-server
-sudo firewall-cmd --permanent --zone=public --add-service=nfs
-sudo firewall-cmd --permanent --zone=public --add-service=mountd
-sudo firewall-cmd --permanent --zone=public --add-service=rpc-bind
-sudo firewall-cmd --reload
-```
-
-and `systemctl start` them or reboot.
 
 ### Upgrading Installation
 
@@ -182,14 +145,13 @@ sudo yum update
 
 The daemon should then be restarted to use the newly installed code:
 ```
-sudo systemctl stop pipelined@<config>
-sudo systemctl start pipelined@<config>
+sudo systemctl restart pipelined@<config>
 ```
 
 ### Testing Locally
 
 The pipeline server and client can be run directly from a git clone:
 ```
-./pipelined test.json
-PIPELINED_CONFIG_PATH=./test.json ./pipeline status
+./pipelined config/test.json
+PIPELINED_CONFIG_PATH=./config/test.json ./pipeline status
 ```
