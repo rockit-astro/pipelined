@@ -166,15 +166,11 @@ CAMERA_CONFIG_SCHEMA = {
     'required': [
         'worker_daemon', 'worker_processes',
         'input_data_path', 'output_data_path',
-        'dashboard_user', 'dashboard_key', 'dashboard_remote_user',
-        'dashboard_remote_host', 'dashboard_remote_path', 'dashboard_prefix',
         'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
         'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
         'platescale', 'image_region_card', 'object_minpix',
         'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
         'preview_ds9_zoom', 'preview_ds9_annotation_margin',
-        'dashboard_flip_vertical', 'dashboard_flip_horizontal',
-        'dashboard_min_threshold', 'dashboard_max_threshold', 'dashboard_thumb_size', 'dashboard_clip_size'
         # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
         #       overscan_region_card, ccd_bin_card are optional
     ],
@@ -194,25 +190,6 @@ CAMERA_CONFIG_SCHEMA = {
         'output_data_path': {
             'type': 'string',
             'directory_path': True
-        },
-        'dashboard_user': {
-            'type': 'string',
-        },
-        'dashboard_key': {
-            'type': 'string',
-        },
-        'dashboard_remote_user': {
-            'type': 'string',
-        },
-        'dashboard_remote_host': {
-            'type': 'string',
-            'machine_name': True
-        },
-        'dashboard_remote_path': {
-            'type': 'string',
-        },
-        'dashboard_prefix': {
-            'type': 'string'
         },
         'wcs_scale_high': {
             'type': 'number'
@@ -265,28 +242,6 @@ CAMERA_CONFIG_SCHEMA = {
         'preview_ds9_annotation_margin': {
             'type': 'number'
         },
-        'dashboard_flip_vertical': {
-            'type': 'boolean'
-        },
-        'dashboard_flip_horizontal': {
-            'type': 'boolean'
-        },
-        'dashboard_min_threshold': {
-            'type': 'number'
-        },
-        'dashboard_max_threshold': {
-            'type': 'number'
-        },
-        'dashboard_thumb_size': {
-            'type': 'integer'
-        },
-        'dashboard_clip_size': {
-            'type': 'integer'
-        },
-        'dashboard_min_interval': {
-            'type': 'number',
-            'minimum': 0
-        },
         'hfd_grid_tiles_x': {
             'type': 'integer',
             'minimum': 1
@@ -297,10 +252,62 @@ CAMERA_CONFIG_SCHEMA = {
         },
         'master_bias_path': {
             'type': 'string'
-        }
-        ,
+        },
         'master_dark_path': {
             'type': 'string'
+        },
+        'dashboard': {
+            'type': 'object',
+            'additionalProperties': False,
+            'required': [
+                'user', 'key', 'remote_user',
+                'remote_host', 'remote_path', 'prefix',
+                'flip_vertical', 'flip_horizontal',
+                'min_threshold', 'max_threshold', 'thumb_size', 'clip_size'
+            ],
+            'properties': {
+                'user': {
+                    'type': 'string',
+                },
+                'key': {
+                    'type': 'string',
+                },
+                'remote_user': {
+                    'type': 'string',
+                },
+                'remote_host': {
+                    'type': 'string',
+                    'machine_name': True
+                },
+                'remote_path': {
+                    'type': 'string',
+                },
+                'prefix': {
+                    'type': 'string'
+                },
+                'flip_vertical': {
+                    'type': 'boolean'
+                },
+                'flip_horizontal': {
+                    'type': 'boolean'
+                },
+                'min_threshold': {
+                    'type': 'number'
+                },
+                'max_threshold': {
+                    'type': 'number'
+                },
+                'thumb_size': {
+                    'type': 'integer'
+                },
+                'clip_size': {
+                    'type': 'integer'
+                },
+                'min_interval': {
+                    'type': 'number',
+                    'minimum': 0
+                }
+            }
         }
     }
 }

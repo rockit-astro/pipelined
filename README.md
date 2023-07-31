@@ -34,12 +34,6 @@ The configuration options are:
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
-      "dashboard_user": "ops", # User on the local machine that owns the SSH key for copying files to the dashboard
-      "dashboard_key": "dashboard", # SSH key file to use for copying files to the dashboard
-      "dashboard_remote_host": "GOTOServer", # Dashboard host machine
-      "dashboard_remote_user": "dashboarddata", # User on the dashboard host to log in as
-      "dashboard_remote_path": "/srv/dashboard/generated", # Directory on the dashboard host to copy files to
-      "dashboard_prefix": "dashboard-CAM1", # The filename prefix to use for generated preview data.
       "wcs_scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
       "wcs_scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.
       "wcs_timeout": 4.0, # Solution timeout for astrometry.net.
@@ -57,15 +51,23 @@ The configuration options are:
       "preview_ds9_height": 572, # Default ds9 window height for pipeline preview windows.
       "preview_ds9_zoom": 0.5, # Default ds9 window zoom for pipeline preview windows.
       "preview_ds9_annotation_margin": 30, # Pixel offset for information annotations above/below the ds9 preview.
-      "dashboard_flip_vertical": true, # Flip dashboard preview image vertically.
-      "dashboard_flip_horizontal": false, # Flip dashboard preview image horizontally.
-      "dashboard_min_threshold": 5, # Histogram black level (in percent) for dashboard previews.
-      "dashboard_max_threshold": 95, # Histogram white level (in percent) for dashboard previews.
-      "dashboard_thumb_size": 1024, # Dashboard thumbnail size.
-      "dashboard_clip_size": 1024, # Clip a region this big around the center of the image for the dashboard zoom preview.
-      "dashboard_min_interval": 30, # The minimum interval (in seconds) between dashboard updates.
       "hfd_grid_tiles_x": 5, # Number of vertical slices used by the hfd grid previews
-      "hfd_grid_tiles_y": 4 # Number of horizontal slices used by the hfd grid previews
+      "hfd_grid_tiles_y": 4, # Number of horizontal slices used by the hfd grid previews
+      "dashboard": {
+          "user": "ops", # User on the local machine that owns the SSH key for copying files to the dashboard
+          "key": "dashboard", # SSH key file to use for copying files to the dashboard
+          "remote_host": "GOTOServer", # Dashboard host machine
+          "remote_user": "dashboarddata", # User on the dashboard host to log in as
+          "remote_path": "/srv/dashboard/generated", # Directory on the dashboard host to copy files to
+          "prefix": "dashboard-CAM1", # The filename prefix to use for generated preview data.
+          "flip_vertical": true, # Flip dashboard preview image vertically.
+          "flip_horizontal": false, # Flip dashboard preview image horizontally.
+          "min_threshold": 5, # Histogram black level (in percent) for dashboard previews.
+          "max_threshold": 95, # Histogram white level (in percent) for dashboard previews.
+          "thumb_size": 1024, # Dashboard thumbnail size.
+          "clip_size": 1024, # Clip a region this big around the center of the image for the dashboard zoom preview.
+          "min_interval": 30, # The minimum interval (in seconds) between dashboard updates.
+      }
     }
     # Additional cameras can be defined.
   },

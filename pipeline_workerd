@@ -479,50 +479,49 @@ def update_dashboard(header, data, config):
                 'saved': header['FILESAVE'],
                 'filename': header['FILENAME'] if 'FILENAME' in header else '',
                 'size': [size[1], size[0]],
-                'clipsize': config['dashboard_clip_size'],
+                'clipsize': config['clip_size'],
             }
 
-            scaled = rescale_image_data(data, config['dashboard_min_threshold'], config['dashboard_max_threshold'])
+            scaled = rescale_image_data(data, config['min_threshold'], config['max_threshold'])
             preview = Image.fromarray(scaled).convert('RGB')
-            if config['dashboard_flip_vertical']:
+            if config['flip_vertical']:
                 preview = ImageOps.flip(preview)
-            if config['dashboard_flip_horizontal']:
+            if config['flip_horizontal']:
                 preview = ImageOps.mirror(preview)
 
-            preview.thumbnail((config['dashboard_thumb_size'], config['dashboard_thumb_size']))
-            thumb_path = os.path.join(path, config['dashboard_prefix']+ '-thumb.jpg')
+            preview.thumbnail((config['thumb_size'], config['thumb_size']))
+            thumb_path = os.path.join(path, config['prefix'] + '-thumb.jpg')
             preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
 
             # Clip the central region from the image
-            cx1 = (data.shape[0] - config['dashboard_clip_size']) // 2
-            cx2 = cx1 + config['dashboard_clip_size']
-            cy1 = (data.shape[1] - config['dashboard_clip_size']) // 2
-            cy2 = cy1 + config['dashboard_clip_size']
+            cx1 = (data.shape[0] - config['clip_size']) // 2
+            cx2 = cx1 + config['clip_size']
+            cy1 = (data.shape[1] - config['clip_size']) // 2
+            cy2 = cy1 + config['clip_size']
 
             clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
-                                         config['dashboard_min_threshold'],
-                                         config['dashboard_max_threshold'])
+                                         config['min_threshold'],
+                                         config['max_threshold'])
             preview = Image.fromarray(clipped).convert('RGB')
             preview = ImageOps.flip(preview)
-            clip_path = os.path.join(path, config['dashboard_prefix'] + '-clip.jpg')
+            clip_path = os.path.join(path, config['prefix'] + '-clip.jpg')
             preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
 
-            json_path = os.path.join(path, config['dashboard_prefix'] + '.json')
+            json_path = os.path.join(path, config['prefix'] + '.json')
             with open(json_path, 'w', encoding='utf-8') as outfile:
                 json.dump(metadata, outfile)
 
-            with open(f'/home/{config["dashboard_user"]}/.ssh/{config["dashboard_key"]}', encoding='utf-8') as keyfile:
+            with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
                 key = RSAKey.from_private_key(keyfile)
 
             with SSHClient() as ssh:
-                ssh.load_system_host_keys(f'/home/{config["dashboard_user"]}/.ssh/known_hosts')
-                ssh.connect(getattr(IP, config['dashboard_remote_host']),
-                            username=config['dashboard_remote_user'], pkey=key)
+                ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
+                ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
 
                 with SCPClient(ssh.get_transport()) as scp:
-                    scp.put(thumb_path, remote_path=config['dashboard_remote_path'])
-                    scp.put(clip_path, remote_path=config['dashboard_remote_path'])
-                    scp.put(json_path, remote_path=config['dashboard_remote_path'])
+                    scp.put(thumb_path, remote_path=config['remote_path'])
+                    scp.put(clip_path, remote_path=config['remote_path'])
+                    scp.put(json_path, remote_path=config['remote_path'])
 
     except Exception:
         print('failed to generate dashboard preview with error:')
@@ -678,10 +677,10 @@ def process_frames(processing_queue, camera_config,
                         preview_stale = True
 
             dashboard_stale = False
-            if info['dashboard_enabled']:
+            if info['dashboard_enabled'] and 'dashboard' in camera_config:
                 with dashboard_timestamp.get_lock():
                     next_dashboard_time = Time(dashboard_timestamp.value.decode('ascii')) + \
-                        camera_config['dashboard_min_interval'] * u.s
+                        camera_config['dashboard']['min_interval'] * u.s
                     if header_time > next_dashboard_time:
                         dashboard_timestamp.value = header['DATE-OBS'].encode('ascii')
                         dashboard_stale = True
@@ -821,7 +820,7 @@ def process_frames(processing_queue, camera_config,
             print('processed ' + loadpath + ' in ' + str(process_time) + 's (' + ', '.join(steps) + ')', flush=True)
 
             if dashboard_stale:
-                update_dashboard(header, data_cropped, camera_config)
+                update_dashboard(header, data_cropped, camera_config['dashboard'])
 
         except Exception:
             print('Unexpected exception while processing ' + loadpath + ': ')
