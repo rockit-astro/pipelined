@@ -166,13 +166,10 @@ CAMERA_CONFIG_SCHEMA = {
     'required': [
         'worker_daemon', 'worker_processes',
         'input_data_path', 'output_data_path',
-        'wcs_scale_high', 'wcs_scale_low', 'wcs_timeout',
-        'wcs_search_ra_card', 'wcs_search_dec_card', 'wcs_search_radius',
         'platescale', 'image_region_card', 'object_minpix',
         'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
         'preview_ds9_zoom', 'preview_ds9_annotation_margin',
-        # Note: wcs_search_ra_card, 'wcs_search_dec_card, wcs_search_radius,
-        #       overscan_region_card, ccd_bin_card are optional
+        # Note: overscan_region_card, ccd_bin_card are optional
     ],
     'properties': {
         'worker_daemon': {
@@ -190,24 +187,6 @@ CAMERA_CONFIG_SCHEMA = {
         'output_data_path': {
             'type': 'string',
             'directory_path': True
-        },
-        'wcs_scale_high': {
-            'type': 'number'
-        },
-        'wcs_scale_low': {
-            'type': 'number'
-        },
-        'wcs_timeout': {
-            'type': 'number'
-        },
-        'wcs_search_ra_card': {
-            'type': 'string'
-        },
-        'wcs_search_dec_card': {
-            'type': 'string'
-        },
-        'wcs_search_radius': {
-            'type': 'number'
         },
         'ccd_bin_card': {
             'type': 'string'
@@ -255,6 +234,39 @@ CAMERA_CONFIG_SCHEMA = {
         },
         'master_dark_path': {
             'type': 'string'
+        },
+        'wcs': {
+            'type': 'object',
+            'additionalProperties': False,
+            'required': [
+                'scale_high', 'scale_low', 'timeout'
+                # Note: tel_ra_card, tel_dec_card, search_radius are optional
+            ],
+            'properties': {
+                'scale_high': {
+                    'type': 'number'
+                },
+                'scale_low': {
+                    'type': 'number'
+                },
+                'timeout': {
+                    'type': 'number'
+                },
+                'tel_ra_card': {
+                    'type': 'string'
+                },
+                'tel_dec_card': {
+                    'type': 'string'
+                },
+                'search_radius': {
+                    'type': 'number'
+                }
+            },
+            'dependencies': {
+                'tel_ra_card': ['tel_dec_card', 'search_radius'],
+                'tel_dec_card': ['tel_ra_card', 'search_radius'],
+                'search_radius': ['tel_ra_card', 'tel_dec_card'],
+            }
         },
         'dashboard': {
             'type': 'object',

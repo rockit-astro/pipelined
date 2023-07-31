@@ -228,14 +228,26 @@ def add_pipeline_header(header, info, filename):
         header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
 
-def add_wcs_header(header, info, objects, config):
+def add_wcs_header(header, info, objects, wcs_config, preview_config):
     """Solves frame WCS and adds the appropriate header keys to the frame.
        Returns a list of xpa messages that can be given to update_previews"""
-    if objects is None or len(objects) <= 0:
-        return []
 
     width = header['NAXIS1']
     height = header['NAXIS2']
+
+    if objects is None or len(objects) <= 0:
+        return [
+            ('regions', ANNOTATION_LABEL.format(width / 4,
+                                                -preview_config['preview_ds9_annotation_margin'],
+                                                'WCS: FAILED'))
+        ]
+
+    if wcs_config is None:
+        return [
+            ('regions', ANNOTATION_LABEL.format(width / 4,
+                                                -preview_config['preview_ds9_annotation_margin'],
+                                                'WCS: UNSUPPORTED'))
+        ]
 
     try:
         table_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.xyls'
@@ -257,12 +269,12 @@ def add_wcs_header(header, info, objects, config):
             '--overwrite', '--no-plots',
             '--axy', 'none', '--rdls', 'none', '--match', 'none',
             '--corr', 'none', '--solved', 'none',
-            '--scale-units', 'arcsecperpix', '--scale-high', str(config['wcs_scale_high']),
-            '--scale-low', str(config['wcs_scale_low']), '--width', str(width), '--height', str(height)]
+            '--scale-units', 'arcsecperpix', '--scale-high', str(wcs_config['scale_high']),
+            '--scale-low', str(wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
 
-        ra = config.get('wcs_search_ra_card', None)
-        dec = config.get('wcs_search_dec_card', None)
-        radius = config.get('wcs_search_radius', None)
+        ra = wcs_config.get('tel_ra_card', None)
+        dec = wcs_config.get('tel_dec_card', None)
+        radius = wcs_config.get('search_radius', None)
         if ra and ra in header and dec and dec in header and radius:
             wcs_args.extend([
                 '--ra', header[ra],
@@ -272,7 +284,7 @@ def add_wcs_header(header, info, objects, config):
 
         wcs_args.append(table_path)
 
-        subprocess.check_call(wcs_args, timeout=config['wcs_timeout'],
+        subprocess.check_call(wcs_args, timeout=wcs_config['timeout'],
                               stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL)
 
@@ -281,7 +293,7 @@ def add_wcs_header(header, info, objects, config):
         comment = 'astrometry.net wcs solution'
         with open(wcs_path, encoding='ascii') as wcs_file:
             h = wcs_file.read()
-            # ds9 will only accept newline-delimited keys
+            # ds9 will only accept newline-delimited keys,
             # so we need to reformat the 80-character cards
             for line in [h[i:i+80] for i in range(0, len(h), 80)]:
                 key = line[0:8].strip()
@@ -293,7 +305,8 @@ def add_wcs_header(header, info, objects, config):
                     header.append(fits.Card(card.keyword, card.value, comment), end=True)
         annotations = [
             ('wcs replace', wcs_data),
-            ('regions', ANNOTATION_LABEL.format(width / 5, -config['preview_ds9_annotation_margin'],
+            ('regions', ANNOTATION_LABEL.format(width / 5,
+                                                -preview_config['preview_ds9_annotation_margin'],
                                                 'WCS: SOLVED'))
         ]
 
@@ -302,7 +315,7 @@ def add_wcs_header(header, info, objects, config):
             coords = wcs.all_pix2world([width // 2, width // 2], [height // 2, height // 2 + 1], 0)
             north_angle = np.degrees(np.arctan2(np.diff(coords[1]), np.diff(coords[0]))).item()
             annotations.append(('regions', ANNOTATION_LABEL.format(
-                width / 5, -2 * config['preview_ds9_annotation_margin'],
+                width / 5, -2 * preview_config['preview_ds9_annotation_margin'],
                 f'ROT: North is {north_angle:.1f} deg CCW of +X')))
 
         return annotations
@@ -312,7 +325,9 @@ def add_wcs_header(header, info, objects, config):
         sys.stdout.flush()
 
         return [
-            ('regions', ANNOTATION_LABEL.format(width / 4, -config['preview_ds9_annotation_margin'], 'WCS: FAILED'))
+            ('regions', ANNOTATION_LABEL.format(width / 4,
+                                                -preview_config['preview_ds9_annotation_margin'],
+                                                'WCS: FAILED'))
         ]
 
 
@@ -773,7 +788,7 @@ def process_frames(processing_queue, camera_config,
                 preview_queue.put((data_raw, header, annotations))
 
             if info['wcs_enabled'] or info['rotation_enabled']:
-                wcs = add_wcs_header(header, info, objects, camera_config)
+                wcs = add_wcs_header(header, info, objects, camera_config.get('wcs', None), camera_config)
                 if preview_stale:
                     preview_queue.put((None, header, wcs))
                 steps.append('wcs')

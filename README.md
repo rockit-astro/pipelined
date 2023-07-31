@@ -34,12 +34,6 @@ The configuration options are:
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
-      "wcs_scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
-      "wcs_scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.
-      "wcs_timeout": 4.0, # Solution timeout for astrometry.net.
-      "wcs_search_ra_card": "TELRA", # (optional) Header card (from telescope_cards below) with the estimated telescope RA.
-      "wcs_search_dec_card": "TELDEC", # (optional) Header card (from telescope_cards below) with the estimated telescope Dec.
-      "wcs_search_radius": 1.75, # (optional) Maximum search radius (in degrees) around the search ra/dec.
       "ccd_bin_card": "CCD-XBIN", # (optional) Header card (from the camera daemon) to multiply with platescale.
       "image_region_card": "IMAG-RGN", # (optional) Header card (from the camera daemon) to crop frame before source detection or intensity statistics.
       "overscan_region_card": "BIAS-RGN", # (optional) Header card (from the camera daemon) to measure overscan bias level to subtract from intensity statistics.
@@ -53,6 +47,14 @@ The configuration options are:
       "preview_ds9_annotation_margin": 30, # Pixel offset for information annotations above/below the ds9 preview.
       "hfd_grid_tiles_x": 5, # Number of vertical slices used by the hfd grid previews
       "hfd_grid_tiles_y": 4, # Number of horizontal slices used by the hfd grid previews
+      "wcs": {
+        "scale_low": 0.38, # Scale parameter for astrometry.net; arcsec per px.
+        "scale_high": 0.40, # Scale parameter for astrometry.net; arcsec per px.
+        "timeout": 4.0, # Solution timeout for astrometry.net.
+        "tel_ra_card": "TELRA", # (optional) Header card (from telescope_cards below) with the estimated telescope RA.
+        "tel_dec_card": "TELDEC", # (optional) Header card (from telescope_cards below) with the estimated telescope Dec.
+        "search_radius": 1.75, # (optional) Maximum search radius (in degrees) around the search ra/dec.   
+      },
       "dashboard": {
           "user": "ops", # User on the local machine that owns the SSH key for copying files to the dashboard
           "key": "dashboard", # SSH key file to use for copying files to the dashboard

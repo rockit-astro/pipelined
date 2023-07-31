@@ -14,12 +14,6 @@
       "worker_processes": 8,
       "input_data_path": "/data/incoming",
       "output_data_path": "/data",
-      "wcs_scale_low": 0.15,
-      "wcs_scale_high": 0.30,
-      "wcs_timeout": 4.0,
-      "wcs_search_ra_card": "TELRA",
-      "wcs_search_dec_card": "TELDEC",
-      "wcs_search_radius": 1.75,
       "ccd_bin_card": "CCD-XBIN",
       "image_region_card": "IMAG-RGN",
       "overscan_region_card": "BIAS-RGN",
@@ -33,6 +27,14 @@
       "preview_ds9_annotation_margin": 175,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
+      "wcs": {
+        "scale_low": 0.15,
+        "scale_high": 0.30,
+        "timeout": 4.0,
+        "tel_ra_card": "TELRA",
+        "tel_dec_card": "TELDEC",
+        "search_radius": 1.75
+      },
       "dashboard": {
         "user": "ops",
         "key": "dashboard",
