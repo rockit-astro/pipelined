@@ -606,8 +606,11 @@ def process_frames(processing_queue, camera_config,
     This uses a process (rather than a thread) to avoid the GIL bottlenecking throughput,
     and multiple worker processes allow frames to be processed in parallel.
     """
-    environment_daemon = getattr(daemons, environment_daemon_name)
-    ops_daemon = getattr(daemons, ops_daemon_name)
+    environment_daemon = ops_daemon = None
+    if environment_daemon_name is not None:
+        environment_daemon = getattr(daemons, environment_daemon_name)
+    if ops_daemon_name is not None:
+        ops_daemon = getattr(daemons, ops_daemon_name)
 
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
@@ -731,7 +734,7 @@ def process_frames(processing_queue, camera_config,
                 data_background.subfrom(data_bgsubtracted)
                 steps.append('background')
 
-            if guide_profiles_stale:
+            if guide_profiles_stale and ops_daemon is not None:
                 notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
                 steps.append('guiding')
 
@@ -742,9 +745,13 @@ def process_frames(processing_queue, camera_config,
                     date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
 
             move_bscale_bzero(header)
-            add_telescope_header(header, info, log_name, telescope_cards, telescope_query_timeout)
-            add_environment_header(header, info, log_name, environment_cards,
-                                   environment_daemon, environment_query_timeout)
+            if telescope_cards:
+                add_telescope_header(header, info, log_name, telescope_cards, telescope_query_timeout)
+
+            if environment_cards:
+                add_environment_header(header, info, log_name, environment_cards,
+                                       environment_daemon, environment_query_timeout)
+
             add_pipeline_header(header, info, output_filename)
 
             if info['intensity_stats_enabled']:
@@ -780,7 +787,8 @@ def process_frames(processing_queue, camera_config,
                     preview_queue.put((None, header, grid))
                 steps.append('hfd_grid')
 
-            notify_opsd(header, ops_daemon, log_name)
+            if  ops_daemon is not None:
+                notify_opsd(header, ops_daemon, log_name)
 
             if output_filename:
                 # Replace header directly in the input file before moving to the final output location

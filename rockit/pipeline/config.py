@@ -23,9 +23,7 @@ CONFIG_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': [
-        'daemon', 'environment_daemon', 'environment_query_timeout', 'telescope_query_timeout', 'ops_daemon',
-        'log_name', 'control_machines', 'notify_frame_machines', 'guiding_min_interval',
-        'cameras', 'environment_cards', 'telescope_cards'
+        'daemon', 'log_name', 'control_machines', 'notify_frame_machines', 'cameras'
     ],
     'properties': {
         'daemon': {
@@ -150,6 +148,15 @@ CONFIG_SCHEMA = {
                 }
             }
         }
+    },
+    'dependencies': {
+        'ops_daemon': ['guiding_min_interval'],
+        'guiding_min_interval': ['ops_daemon'],
+        'environment_cards': ['environment_query_timeout', 'environment_daemon'],
+        'environment_query_timeout': ['environment_cards', 'environment_daemon'],
+        'environment_daemon': ['environment_cards', 'environment_query_timeout'],
+        'telescope_cards': ['telescope_query_timeout'],
+        'telescope_query_timeout': ['telescope_cards']
     }
 }
 
@@ -319,17 +326,29 @@ class Config:
             validation.validate_config(config_json['cameras'][validate_camera], CAMERA_CONFIG_SCHEMA, validators)
 
         self.daemon = getattr(daemons, config_json['daemon'])
-        self.environment_daemon_name = config_json['environment_daemon']
-        self.environment_query_timeout = config_json['environment_query_timeout']
-        self.telescope_query_timeout = config_json['telescope_query_timeout']
-        self.ops_daemon_name = config_json['ops_daemon']
         self.log_name = config_json['log_name']
         self.control_ips = [getattr(IP, machine) for machine in config_json['control_machines']]
         self.notify_frame_machines = [getattr(IP, machine) for machine in config_json['notify_frame_machines']]
-        self.guiding_min_interval = config_json['guiding_min_interval']
+        self.guiding_min_interval = 0
+        self.ops_daemon_name = None
+        self.environment_daemon_name = None
+        self.environment_cards = []
+        self.environment_query_timeout = 0
+        self.telescope_cards = []
+        self.telescope_query_timeout = 0
         self.cameras = config_json['cameras']
 
-        self.environment_cards = config_json['environment_cards']
-        self.telescope_cards = config_json['telescope_cards']
-        for card in self.telescope_cards:
-            card['daemon'] = getattr(daemons, card['daemon'])
+        if 'ops_daemon' in config_json:
+            self.ops_daemon_name = config_json['ops_daemon']
+            self.guiding_min_interval = config_json['guiding_min_interval']
+
+        if 'environment_cards' in config_json:
+            self.environment_cards = config_json['environment_cards']
+            self.environment_daemon_name = config_json['environment_daemon']
+            self.environment_query_timeout = config_json['environment_query_timeout']
+
+        if 'telescope_cards' in config_json:
+            self.telescope_cards = config_json['telescope_cards']
+            self.telescope_query_timeout = config_json['telescope_query_timeout']
+            for card in self.telescope_cards:
+                card['daemon'] = getattr(daemons, card['daemon'])
