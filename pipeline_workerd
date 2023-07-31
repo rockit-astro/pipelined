@@ -336,9 +336,9 @@ def detect_objects(header, data, background_rms, config, crop_x, crop_y):
        object detected by sep"""
     try:
         platescale = config['platescale']
-        ccd_bin = config.get('ccd_bin_card', None)
-        if ccd_bin and ccd_bin in header:
-            platescale *= header[ccd_bin]
+        binning_card = config.get('binning_card', None)
+        if binning_card and binning_card in header:
+            platescale *= header[binning_card]
 
         # Note: data is expected to be background subtracted
         objects = sep.extract(data, 5 * background_rms)

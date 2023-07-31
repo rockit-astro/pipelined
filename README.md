@@ -34,7 +34,7 @@ The configuration options are:
       "worker_processes": 2, # Number of worker processes that a spawned to process frames in parallel
       "input_data_path": "/data/incoming", # The directory where camera daemons save frames before calling notify_frame.
       "output_data_path": "/data",  # The root path under which nightly data directories are created.
-      "ccd_bin_card": "CCD-XBIN", # (optional) Header card (from the camera daemon) to multiply with platescale.
+      "binning_card": "CCD-XBIN", # (optional) Header card (from the camera daemon) to multiply with platescale.
       "image_region_card": "IMAG-RGN", # (optional) Header card (from the camera daemon) to crop frame before source detection or intensity statistics.
       "overscan_region_card": "BIAS-RGN", # (optional) Header card (from the camera daemon) to measure overscan bias level to subtract from intensity statistics.
       "platescale": 0.391, # Image platescale used to convert px HFDs to arcsec.
