@@ -485,16 +485,21 @@ def generate_hfd_grid_annotations(header, objects, config):
     return annotations
 
 
-def update_dashboard(header, data, config):
+def update_dashboard(header, data, config, process_steps, process_time):
     try:
         size = np.shape(data)
         metadata = {
             'date': header['DATE-OBS'],
+            'src': header.get('TIME-SRC', ''),
             'exptime': header['EXPTIME'],
+            'type': header.get('IMAGETYP', ''),
+            'object': header.get('OBJECT', ''),
             'saved': header['FILESAVE'],
-            'filename': header['FILENAME'] if 'FILENAME' in header else '',
+            'filename': header.get('FILENAME', ''),
             'size': [size[1], size[0]],
             'clipsize': config['clip_size'],
+            'process_steps': process_steps,
+            'process_time': process_time
         }
 
         scaled = rescale_image_data(data, config['min_threshold'], config['max_threshold'])
@@ -836,7 +841,7 @@ def process_frames(processing_queue, camera_config,
             print('processed ' + loadpath + ' in ' + str(process_time) + 's (' + ', '.join(steps) + ')', flush=True)
 
             if dashboard_stale:
-                update_dashboard(header, data_cropped, camera_config['dashboard'])
+                update_dashboard(header, data_cropped, camera_config['dashboard'], steps, process_time)
 
         except Exception:
             print('Unexpected exception while processing ' + loadpath + ': ')
