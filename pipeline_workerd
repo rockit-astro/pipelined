@@ -643,6 +643,7 @@ def process_frames(processing_queue, camera_config,
                      ).start()
 
     # Apply bias/dark corrections if required
+    master_bias_stats = None
     if 'master_bias_path' in camera_config:
         master_bias = fits.getdata(camera_config['master_bias_path']).astype(float)
         master_bias_stats = {
@@ -715,9 +716,9 @@ def process_frames(processing_queue, camera_config,
 
             calculate_bgsubtracted = calculate_objects or guide_profiles_stale
             calculate_cropped = calculate_bgsubtracted or info['intensity_stats_enabled'] or dashboard_stale
+            data_raw_float = None
             if calculate_cropped or preview_stale:
                 data_raw, header = fits.getdata(loadpath, header=True)
-                data_raw_float = None
                 steps.append('data')
 
                 if master_bias_pixel_nonuniformity is not None or master_dark_adu_per_sec is not None:
