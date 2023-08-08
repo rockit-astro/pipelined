@@ -26,6 +26,7 @@
 import argparse
 import array
 import datetime
+import io
 import json
 import multiprocessing
 import os
@@ -486,58 +487,58 @@ def generate_hfd_grid_annotations(header, objects, config):
 
 def update_dashboard(header, data, config):
     try:
-        with tempfile.TemporaryDirectory() as path:
-            size = np.shape(data)
-            metadata = {
-                'date': header['DATE-OBS'],
-                'exptime': header['EXPTIME'],
-                'saved': header['FILESAVE'],
-                'filename': header['FILENAME'] if 'FILENAME' in header else '',
-                'size': [size[1], size[0]],
-                'clipsize': config['clip_size'],
-            }
+        size = np.shape(data)
+        metadata = {
+            'date': header['DATE-OBS'],
+            'exptime': header['EXPTIME'],
+            'saved': header['FILESAVE'],
+            'filename': header['FILENAME'] if 'FILENAME' in header else '',
+            'size': [size[1], size[0]],
+            'clipsize': config['clip_size'],
+        }
 
-            scaled = rescale_image_data(data, config['min_threshold'], config['max_threshold'])
-            preview = Image.fromarray(scaled).convert('RGB')
-            if config['flip_vertical']:
-                preview = ImageOps.flip(preview)
-            if config['flip_horizontal']:
-                preview = ImageOps.mirror(preview)
-
-            preview.thumbnail((config['thumb_size'], config['thumb_size']))
-            thumb_path = os.path.join(path, config['prefix'] + '-thumb.jpg')
-            preview.save(thumb_path, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
-
-            # Clip the central region from the image
-            cx1 = (data.shape[0] - config['clip_size']) // 2
-            cx2 = cx1 + config['clip_size']
-            cy1 = (data.shape[1] - config['clip_size']) // 2
-            cy2 = cy1 + config['clip_size']
-
-            clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
-                                         config['min_threshold'],
-                                         config['max_threshold'])
-            preview = Image.fromarray(clipped).convert('RGB')
+        scaled = rescale_image_data(data, config['min_threshold'], config['max_threshold'])
+        preview = Image.fromarray(scaled).convert('RGB')
+        if config['flip_vertical']:
             preview = ImageOps.flip(preview)
-            clip_path = os.path.join(path, config['prefix'] + '-clip.jpg')
-            preview.save(clip_path, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+        if config['flip_horizontal']:
+            preview = ImageOps.mirror(preview)
 
-            json_path = os.path.join(path, config['prefix'] + '.json')
-            with open(json_path, 'w', encoding='utf-8') as outfile:
-                json.dump(metadata, outfile)
+        preview.thumbnail((config['thumb_size'], config['thumb_size']))
+        thumb_bytes = io.BytesIO()
+        preview.save(thumb_bytes, 'JPEG', quality=80, optimize=True, progressive=True, clobber=True)
+        thumb_bytes.seek(0)
 
-            with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
-                key = RSAKey.from_private_key(keyfile)
+        # Clip the central region from the image
+        cx1 = (data.shape[0] - config['clip_size']) // 2
+        cx2 = cx1 + config['clip_size']
+        cy1 = (data.shape[1] - config['clip_size']) // 2
+        cy2 = cy1 + config['clip_size']
 
-            with SSHClient() as ssh:
-                ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
-                ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
+        clipped = rescale_image_data(data[cx1:cx2, cy1:cy2],
+                                     config['min_threshold'],
+                                     config['max_threshold'])
+        preview = Image.fromarray(clipped).convert('RGB')
+        preview = ImageOps.flip(preview)
+        clip_bytes = io.BytesIO()
+        preview.save(clip_bytes, 'JPEG', quality=40, optimize=True, progressive=True, clobber=True)
+        clip_bytes.seek(0)
 
-                with SCPClient(ssh.get_transport()) as scp:
-                    scp.put(thumb_path, remote_path=config['remote_path'])
-                    scp.put(clip_path, remote_path=config['remote_path'])
-                    scp.put(json_path, remote_path=config['remote_path'])
+        json_bytes = io.BytesIO()
+        json_bytes.write(json.dumps(metadata).encode())
+        json_bytes.seek(0)
 
+        with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
+            key = RSAKey.from_private_key(keyfile)
+
+        with SSHClient() as ssh:
+            ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
+            ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
+
+            with SCPClient(ssh.get_transport()) as scp:
+                scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-thumb.jpg'))
+                scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-clip.jpg'))
+                scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '.json'))
     except Exception:
         print('failed to generate dashboard preview with error:')
         traceback.print_exc(file=sys.stdout)
