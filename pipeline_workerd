@@ -233,7 +233,7 @@ def add_pipeline_header(header, info, filename):
         header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
 
-def add_wcs_header(header, info, objects, wcs_config, preview_config):
+def add_wcs_header(header, info, objects, binning, wcs_config, preview_config):
     """Solves frame WCS and adds the appropriate header keys to the frame.
        Returns a list of xpa messages that can be given to update_previews"""
 
@@ -274,8 +274,8 @@ def add_wcs_header(header, info, objects, wcs_config, preview_config):
             '--overwrite', '--no-plots',
             '--axy', 'none', '--rdls', 'none', '--match', 'none',
             '--corr', 'none', '--solved', 'none',
-            '--scale-units', 'arcsecperpix', '--scale-high', str(wcs_config['scale_high']),
-            '--scale-low', str(wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
+            '--scale-units', 'arcsecperpix', '--scale-high', str(binning * wcs_config['scale_high']),
+            '--scale-low', str(binning * wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
 
         ra = wcs_config.get('tel_ra_card', None)
         dec = wcs_config.get('tel_dec_card', None)
@@ -336,14 +336,11 @@ def add_wcs_header(header, info, objects, wcs_config, preview_config):
         ]
 
 
-def detect_objects(header, data, background_rms, config, crop_x, crop_y):
+def detect_objects(data, background_rms, config, binning, crop_x, crop_y):
     """returns an Astropy table containing (X, Y, FLUX, HFD_PX, HFD_ARCSEC) for each
        object detected by sep"""
     try:
-        platescale = config['platescale']
-        binning_card = config.get('binning_card', None)
-        if binning_card and binning_card in header:
-            platescale *= header[binning_card]
+        platescale = binning * config['platescale']
 
         # Note: data is expected to be background subtracted
         objects = sep.extract(data, 5 * background_rms)
@@ -785,10 +782,15 @@ def process_frames(processing_queue, camera_config,
                 add_intensity_stats_header(header, data_raw, data_cropped, camera_config, master_bias_stats)
                 steps.append('intstats')
 
+            binning = 1
+            binning_card = camera_config.get('binning_card', None)
+            if binning_card and binning_card in header:
+                binning = header[binning_card]
+
             objects = None
             if calculate_objects:
-                objects = detect_objects(header, data_bgsubtracted, data_background.globalrms, camera_config,
-                                         crop_x, crop_y)
+                objects = detect_objects(data_bgsubtracted, data_background.globalrms, camera_config,
+                                         binning, crop_x, crop_y)
                 steps.append('objdetect')
 
             if info['hfd_enabled']:
@@ -801,7 +803,7 @@ def process_frames(processing_queue, camera_config,
                 preview_queue.put((data_raw, header, annotations))
 
             if info['wcs_enabled'] or info['rotation_enabled']:
-                wcs = add_wcs_header(header, info, objects, camera_config.get('wcs', None), camera_config)
+                wcs = add_wcs_header(header, info, objects, binning, camera_config.get('wcs', None), camera_config)
                 if preview_stale:
                     preview_queue.put((None, header, wcs))
                 steps.append('wcs')
