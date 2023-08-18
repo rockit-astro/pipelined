@@ -14,7 +14,7 @@
       "worker_processes": 8,
       "input_data_path": "/data/incoming",
       "output_data_path": "/data",
-      "binning_card": "CAM-XBIN",
+      "binning_card": "CAM-BIN",
       "image_region_card": "IMAG-RGN",
       "overscan_region_card": "BIAS-RGN",
       "platescale": 0.226,
