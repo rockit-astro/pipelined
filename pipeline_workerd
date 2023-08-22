@@ -232,6 +232,13 @@ def add_pipeline_header(header, info, filename):
     else:
         header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
+    for entry in info['custom_headers']:
+        keyword = entry.get('keyword', None)
+        value = entry.get('value', None)
+        comment = entry.get('comment', None)
+        if keyword and value is not None:
+            header.append(fits.Card(keyword[0:8], value, comment), end=True)
+
 
 def add_wcs_header(header, info, objects, binning, wcs_config, preview_config):
     """Solves frame WCS and adds the appropriate header keys to the frame.
