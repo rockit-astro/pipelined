@@ -251,6 +251,22 @@
       "parameter": "current_steps"
     },
     {
+      "key": "PRITEMP",
+      "comment": "[deg c] primary mirror temperature",
+      "type": "float1dp",
+      "daemon": "halfmetre_focus",
+      "method": "report_status",
+      "parameter": ["temperature", "primary_mirror"]
+    },
+    {
+      "key": "SECTEMP",
+      "comment": "[deg c] secondary mirror temperature",
+      "type": "float1dp",
+      "daemon": "halfmetre_focus",
+      "method": "report_status",
+      "parameter": ["temperature", "secondary_mirror"]
+    },
+    {
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
