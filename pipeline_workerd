@@ -176,7 +176,15 @@ def add_telescope_header(header, info, log_name, telescope_cards, telescope_quer
             continue
 
         key = card['daemon'].uri + '_' + card['method']
-        value = data.get(key, {}).get(card['parameter'], None)
+        if isinstance(card['parameter'], list):
+            value = data.get(key, None)
+            for parameter in card['parameter']:
+                if value is None:
+                    break
+                value = value.get(parameter, None)
+        else:
+            value = data.get(key, {}).get(card['parameter'], None)
+
         if value is not None:
             header.append(create_formatted_card(card['key'], value, card['comment'], card['type']), end=True)
         else:

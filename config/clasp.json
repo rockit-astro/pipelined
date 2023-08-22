@@ -311,6 +311,24 @@
       "parameter": "current_steps_2"
     },
     {
+      "key": "TUBETEMP",
+      "comment": "[deg c] telescope tube temperature",
+      "camera": "CAM1",
+      "type": "float1dp",
+      "daemon": "clasp_focus",
+      "method": "report_status",
+      "parameter": ["temperature", "rasa1"]
+    },
+    {
+      "key": "TUBETEMP",
+      "comment": "[deg c] telescope tube temperature",
+      "camera": "CAM2",
+      "type": "float1dp",
+      "daemon": "clasp_focus",
+      "method": "report_status",
+      "parameter": ["temperature", "rasa2"]
+    },
+    {
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",

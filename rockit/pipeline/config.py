@@ -135,7 +135,10 @@ CONFIG_SCHEMA = {
                         'type': 'string'
                     },
                     'parameter': {
-                        'type': 'string'
+                        'type': ['string', 'array'],
+                        'items': {
+                            'type': 'string'
+                        }
                     },
                     'type': {
                         'type': 'string',
