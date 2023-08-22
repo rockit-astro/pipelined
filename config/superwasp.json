@@ -243,6 +243,13 @@
       "type": "float1dp"
     },
     {
+      "key": "SKYTEMP",
+      "comment": "[deg c] sky temperature",
+      "sensor": "cloudwatcher",
+      "parameter": "sky_temp",
+      "type": "float1dp"
+    },
+    {
       "key": "TNGDIMM",
       "comment": "[arcsec] TNG DIMM seeing measurement",
       "sensor": "tng",
@@ -250,15 +257,8 @@
       "type": "float2dp"
     },
     {
-      "key": "INGDIMM",
-      "comment": "[arcsec] ING RoboDIMM seeing measurement",
-      "sensor": "robodimm",
-      "parameter": "seeing",
-      "type": "float2dp"
-    },
-    {
       "key": "TNGDUST",
-      "comment": "[ug/m3] TNG Dust measurement",
+      "comment": "[ug/m3] TNG dust measurement",
       "sensor": "tng",
       "parameter": "dust",
       "type": "float1dp"
@@ -286,14 +286,6 @@
     }
   ],
   "telescope_cards": [
-    {
-      "key": "MNTSWVER",
-      "comment": "mount server software version",
-      "type": "string",
-      "daemon": "superwasp_telescope",
-      "method": "report_status",
-      "parameter": "software_version"
-    },
     {
       "key": "MNTSTATE",
       "comment": "telescope status",

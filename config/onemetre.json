@@ -157,17 +157,17 @@
       "type": "float1dp"
     },
     {
-      "key": "SKYCLAR",
-      "comment": "[deg c] sky clarity",
-      "sensor": "superwasp_aurora",
-      "parameter": "clarity",
-      "type": "float1dp"
-    },
-    {
       "key": "DEWDELTA",
       "comment": "[deg c] temperature above dew point",
       "sensor": "w1m_vaisala",
       "parameter": "dew_point_delta",
+      "type": "float1dp"
+    },
+    {
+      "key": "SKYTEMP",
+      "comment": "[deg c] sky temperature",
+      "sensor": "cloudwatcher",
+      "parameter": "sky_temp",
       "type": "float1dp"
     },
     {
@@ -178,15 +178,8 @@
       "type": "float2dp"
     },
     {
-      "key": "INGDIMM",
-      "comment": "[arcsec] ING RoboDIMM seeing measurement",
-      "sensor": "robodimm",
-      "parameter": "seeing",
-      "type": "float2dp"
-    },
-    {
       "key": "TNGDUST",
-      "comment": "[ug/m3] TNG Dust measurement",
+      "comment": "[ug/m3] TNG dust measurement",
       "sensor": "tng",
       "parameter": "dust",
       "type": "float1dp"
@@ -221,14 +214,6 @@
     }
   ],
   "telescope_cards": [
-    {
-      "key": "TELSWVER",
-      "comment": "tcs server software version",
-      "type": "string",
-      "daemon": "onemetre_telescope",
-      "method": "report_status",
-      "parameter": "software_version"
-    },
     {
       "key": "TELSTATE",
       "comment": "telescope status",

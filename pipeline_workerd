@@ -56,9 +56,6 @@ from rockit.common import daemons, log, IP
 from rockit.common.helpers import pyro_client_matches
 from rockit.pipeline import CommandStatus, Config
 
-# Set automatically when generating RPM package
-SOFTWARE_VERSION = 'UNKNOWN'
-
 ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
 
@@ -223,8 +220,6 @@ def add_pipeline_header(header, info, filename):
     header.append(fits.Card(None, None), end=True)
     header.append(desc, end=True)
 
-    header.append(fits.Card('DPSWVER', SOFTWARE_VERSION,
-                            'data pipeline software version'), end=True)
     header.append(fits.Card('FILESAVE', filename is not None,
                             'image has been archived to disk'), end=True)
 
