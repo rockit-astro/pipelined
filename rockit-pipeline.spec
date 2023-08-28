@@ -42,6 +42,9 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/superwasp_cam3.args %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/superwasp_cam4.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/warwick.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/warwick.args %{buildroot}%{_sysconfdir}/pipelined
+
 %package server
 Summary:  Data pipeline server
 Group:    Unspecified
@@ -115,5 +118,17 @@ Group:   Unspecified
 %{_sysconfdir}/pipelined/superwasp_cam2.args
 %{_sysconfdir}/pipelined/superwasp_cam3.args
 %{_sysconfdir}/pipelined/superwasp_cam4.args
+
+%changelog
+
+%package data-warwick
+Summary: Data pipeline configuration for the Windmill Hill Observatory telescope.
+Group:   Unspecified
+%description data-warwick
+
+%files data-warwick
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/warwick.json
+%{_sysconfdir}/pipelined/warwick.args
 
 %changelog

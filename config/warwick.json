@@ -1,0 +1,35 @@
+{
+  "daemon": "warwick_pipeline",
+  "log_name": "pipelined@warwick",
+  "control_machines": ["WarwickTCS"],
+  "notify_frame_machines": ["WarwickTCS"],
+  "cameras": {
+    "QHY600M": {
+      "worker_daemon": "warwick_pipeline_cam",
+      "worker_processes": 4,
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
+      "binning_card": "CAM-BIN",
+      "image_region_card": "IMAG-RGN",
+      "overscan_region_card": "BIAS-RGN",
+      "platescale": 0.195,
+      "object_minpix": 9,
+      "preview_min_interval": 5,
+      "preview_max_instances": 5,
+      "preview_ds9_width": 680,
+      "preview_ds9_height": 480,
+      "preview_ds9_zoom": 0.0625,
+      "preview_ds9_annotation_margin": 175,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4,
+      "wcs": {
+        "scale_low": 0.18,
+        "scale_high": 0.21,
+        "timeout": 4.0,
+        "tel_ra_card": "TELRA",
+        "tel_dec_card": "TELDEC",
+        "search_radius": 3
+      }
+    }
+  }
+}
