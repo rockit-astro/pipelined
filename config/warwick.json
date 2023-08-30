@@ -3,6 +3,11 @@
   "log_name": "pipelined@warwick",
   "control_machines": ["WarwickTCS"],
   "notify_frame_machines": ["WarwickTCS"],
+  "environment_daemon": "warwick_environment",
+  "environment_query_timeout": 1,
+  "telescope_query_timeout": 1,
+  "ops_daemon": "warwick_operations",
+  "guiding_min_interval": 5,
   "cameras": {
     "QHY600M": {
       "worker_daemon": "warwick_pipeline_cam",
@@ -31,5 +36,230 @@
         "search_radius": 3
       }
     }
-  }
+  },
+    "environment_cards": [
+    {
+      "key": "EXTTEMP",
+      "comment": "[deg c] temperature outside dome",
+      "sensor": "vaisala",
+      "parameter": "temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "EXTHUMD",
+      "comment": "[%] humidity outside dome",
+      "sensor": "vaisala",
+      "parameter": "relative_humidity",
+      "type": "float1dp"
+    },
+    {
+      "key": "PRESSURE",
+      "comment": "[hPa] air pressure",
+      "sensor": "vaisala",
+      "parameter": "pressure",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDSPD",
+      "comment": "[m/s] wind speed outside dome",
+      "sensor": "vaisala",
+      "parameter": "wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDGUST",
+      "comment": "[m/s] wind gust speed outside dome",
+      "sensor": "vaisala",
+      "parameter": "wind_gust",
+      "type": "float1dp"
+    },
+    {
+      "key": "MEDWIND",
+      "comment": "[m/s] median wind speed (last 20 min)",
+      "sensor": "vaisala",
+      "parameter": "median_wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "DEWDELTA",
+      "comment": "[deg c] temperature above dew point",
+      "sensor": "vaisala",
+      "parameter": "dew_point_delta",
+      "type": "float1dp"
+    },
+    {
+      "key": "SKYTEMP",
+      "comment": "[deg c] sky temperature",
+      "sensor": "cloudwatcher",
+      "parameter": "sky_temp",
+      "type": "float1dp"
+    },
+    {
+      "key": "SUNALT",
+      "comment": "[deg] sun altitude",
+      "sensor": "ephem",
+      "parameter": "sun_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONALT",
+      "comment": "[deg] moon altitude",
+      "sensor": "ephem",
+      "parameter": "moon_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONPCT",
+      "comment": "[%] moon illumination",
+      "sensor": "ephem",
+      "parameter": "moon_percent_illumination",
+      "type": "float1dp"
+    }
+  ],
+  "telescope_cards": [
+    {
+      "key": "MNTSTATE",
+      "comment": "telescope status",
+      "type": "string",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "state_label"
+    },
+    {
+      "key": "DOMESHST",
+      "comment": "dome shutter status",
+      "type": "string",
+      "daemon": "warwick_dome",
+      "method": "status",
+      "parameter": "shutter_label"
+    },
+    {
+      "key": "DOMEAZST",
+      "comment": "dome azimuth status",
+      "type": "string",
+      "daemon": "warwick_dome",
+      "method": "status",
+      "parameter": "azimuth_status_label"
+    },
+    {
+      "key": "DOMEAZ",
+      "comment": "dome azimuth",
+      "type": "float1dp",
+      "daemon": "warwick_dome",
+      "method": "status",
+      "parameter": "azimuth"
+    },
+    {
+      "key": "MNTRA",
+      "comment": "mount nominal J2000 RA",
+      "type": "sexagesimalha",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDEC",
+      "comment": "mount nominal J2000 Dec",
+      "type": "sexagesimaldeg",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHA",
+      "comment": "mount nominal HA",
+      "type": "sexagesimalha",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "MNTRAD",
+      "comment": "[deg] mount nominal J2000 RA",
+      "type": "float5dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDECD",
+      "comment": "[deg] mount nominal J2000 Dec",
+      "type": "float5dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHAD",
+      "comment": "[deg] mount nominal hour angle",
+      "type": "float5dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "ALTITUDE",
+      "comment": "[deg] mount nominal altitude",
+      "type": "float5dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "alt"
+    },
+    {
+      "key": "AZIMUTH",
+      "comment": "[deg] mount nominal azimuth",
+      "type": "float5dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "az"
+    },
+    {
+      "key": "TELFOC",
+      "comment": "[steps] nominal telescope focus",
+      "type": "int",
+      "daemon": "warwick_focuser",
+      "method": "report_status",
+      "parameter": "current_steps"
+    },
+    {
+      "key": "SITELAT",
+      "comment": "telescope latitude (north)",
+      "type": "sexagesimaldeg",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "site_latitude"
+    },
+    {
+      "key": "SITELONG",
+      "comment": "telescope longitude (east)",
+      "type": "sexagesimaldeg",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "site_longitude"
+    },
+    {
+      "key": "SITEELEV",
+      "comment": "[m] telescope elevation",
+      "type": "int",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "site_elevation"
+    },
+    {
+      "key": "MOONSEP",
+      "comment": "[deg] nominal distance from moon",
+      "type": "float1dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "moon_separation"
+    },
+    {
+      "key": "SUNSEP",
+      "comment": "[deg] nominal distance from sun",
+      "type": "float1dp",
+      "daemon": "warwick_telescope",
+      "method": "report_status",
+      "parameter": "sun_separation"
+    }
+  ]
 }
