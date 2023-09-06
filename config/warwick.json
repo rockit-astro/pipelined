@@ -260,6 +260,14 @@
       "daemon": "warwick_telescope",
       "method": "report_status",
       "parameter": "sun_separation"
+    },
+    {
+      "key": "FILTER",
+      "comment": "filter in light path",
+      "type": "string",
+      "daemon": "warwick_filterwheel",
+      "method": "report_status",
+      "parameter": "filter"
     }
   ]
 }
