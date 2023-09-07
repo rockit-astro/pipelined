@@ -191,6 +191,12 @@ CAMERA_CONFIG_SCHEMA = {
             'type': 'string',
             'directory_path': True
         },
+        'output_filename_add_camera_id': {
+            'type': 'boolean'
+        },
+        'output_filename_add_filter': {
+            'type': 'boolean'
+        },
         'binning_card': {
             'type': 'string'
         },

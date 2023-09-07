@@ -453,7 +453,7 @@ def generate_header_annotations(header, info, config):
     if config['preview_display_camera_id']:
         prefix.append(info['camera_id'])
     if config['preview_display_filter']:
-        prefix.append(header['FILTER'])
+        prefix.append(header.get('FILTER', 'UNKNOWN'))
     exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
 
     cam_transfer = header.get('CAM-TFER', None)
@@ -778,12 +778,6 @@ def process_frames(processing_queue, camera_config,
                 notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
                 steps.append('guiding')
 
-            output_filename = None
-            if info['output_archive']:
-                date = datetime.datetime.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
-                output_filename = info['output_prefix'] + '-' + info['camera_id'] + '-' + \
-                    date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
-
             move_bscale_bzero(header)
             if telescope_cards:
                 add_telescope_header(header, info, log_name, telescope_cards, telescope_query_timeout)
@@ -791,6 +785,19 @@ def process_frames(processing_queue, camera_config,
             if environment_cards:
                 add_environment_header(header, info, log_name, environment_cards,
                                        environment_daemon, environment_query_timeout)
+
+            output_filename = None
+            if info['output_archive']:
+                date = datetime.datetime.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
+                output_filename = info['output_prefix'] + '-'
+
+                if camera_config['output_filename_add_camera_id']:
+                    output_filename += info['camera_id'] + '-'
+
+                if camera_config['output_filename_add_filter']:
+                    output_filename += header.get('FILTER', 'UNKNOWN') + '-'
+
+                output_filename += date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
 
             add_pipeline_header(header, info, output_filename)
 
