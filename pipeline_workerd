@@ -449,7 +449,13 @@ def generate_header_annotations(header, info, config):
     if time_src:
         timestamp += f' ({time_src})'
 
-    exptime = f'{info["camera_id"]} @ {header["EXPTIME"]:.3f}s'
+    prefix = []
+    if config['preview_display_camera_id']:
+        prefix.append(info['camera_id'])
+    if config['preview_display_filter']:
+        prefix.append(header['FILTER'])
+    exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
+
     cam_transfer = header.get('CAM-TFER', None)
     if cam_transfer:
         exptime += f' ({cam_transfer})'

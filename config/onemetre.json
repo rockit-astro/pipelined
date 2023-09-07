@@ -24,6 +24,8 @@
       "preview_ds9_height": 572,
       "preview_ds9_zoom": 0.25,
       "preview_ds9_annotation_margin": 50,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 4,
       "hfd_grid_tiles_y": 4,
       "wcs": {
@@ -65,6 +67,8 @@
       "preview_ds9_height": 572,
       "preview_ds9_zoom": 0.25,
       "preview_ds9_annotation_margin": 50,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 4,
       "hfd_grid_tiles_y": 4,
       "wcs": {

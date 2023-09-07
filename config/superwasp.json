@@ -25,6 +25,8 @@
       "preview_ds9_height": 580,
       "preview_ds9_zoom": 0.2,
       "preview_ds9_annotation_margin": 175,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
@@ -67,6 +69,8 @@
       "preview_ds9_height": 580,
       "preview_ds9_zoom": 0.2,
       "preview_ds9_annotation_margin": 175,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
@@ -109,6 +113,8 @@
       "preview_ds9_height": 580,
       "preview_ds9_zoom": 0.2,
       "preview_ds9_annotation_margin": 175,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
@@ -151,6 +157,8 @@
       "preview_ds9_height": 580,
       "preview_ds9_zoom": 0.2,
       "preview_ds9_annotation_margin": 175,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
