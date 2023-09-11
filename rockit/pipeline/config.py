@@ -287,13 +287,14 @@ CAMERA_CONFIG_SCHEMA = {
             'type': 'object',
             'additionalProperties': False,
             'required': [
-                'user', 'key', 'remote_user',
-                'remote_host', 'remote_path', 'prefix',
-                'flip_vertical', 'flip_horizontal',
+                'prefix', 'flip_vertical', 'flip_horizontal',
                 'min_threshold', 'max_threshold', 'thumb_size', 'clip_size'
             ],
             'properties': {
                 'user': {
+                    'type': 'string',
+                },
+                'group': {
                     'type': 'string',
                 },
                 'key': {
@@ -307,6 +308,9 @@ CAMERA_CONFIG_SCHEMA = {
                     'machine_name': True
                 },
                 'remote_path': {
+                    'type': 'string',
+                },
+                'local_path': {
                     'type': 'string',
                 },
                 'prefix': {
@@ -334,7 +338,11 @@ CAMERA_CONFIG_SCHEMA = {
                     'type': 'number',
                     'minimum': 0
                 }
-            }
+            },
+            'anyOf': [
+                {'required': ['user', 'key', 'remote_user', 'remote_host', 'remote_path']},
+                {'required': ['user', 'group', 'local_path']}
+            ]
         }
     }
 }

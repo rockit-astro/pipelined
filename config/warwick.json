@@ -38,6 +38,19 @@
         "tel_ra_card": "TELRA",
         "tel_dec_card": "TELDEC",
         "search_radius": 3
+      },
+      "dashboard": {
+        "user": "nginx",
+        "group": "nginx",
+        "local_path": "/var/www/dashboard/generated",
+        "prefix": "preview",
+        "flip_vertical": false,
+        "flip_horizontal": false,
+        "min_threshold": 5,
+        "max_threshold": 95,
+        "thumb_size": 1024,
+        "clip_size": 1024,
+        "min_interval": 10
       }
     }
   },

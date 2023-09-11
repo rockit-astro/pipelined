@@ -26,10 +26,12 @@
 import argparse
 import array
 import datetime
+import grp
 import io
 import json
 import multiprocessing
 import os
+import pwd
 import queue
 import re
 import shutil
@@ -550,17 +552,37 @@ def update_dashboard(header, data, config, process_steps, process_time):
         json_bytes.write(json.dumps(metadata).encode())
         json_bytes.seek(0)
 
-        with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
-            key = RSAKey.from_private_key(keyfile)
+        if 'local_path' in config:
+            uid = pwd.getpwnam(config['user']).pw_uid
+            gid = grp.getgrnam(config['group']).gr_gid
 
-        with SSHClient() as ssh:
-            ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
-            ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
+            path = os.path.join(config['local_path'], config['prefix'] + '-thumb.jpg')
+            with open(path, 'wb') as f:
+                f.write(thumb_bytes.getbuffer().tobytes())
+            os.chown(path, uid, gid)
 
-            with SCPClient(ssh.get_transport()) as scp:
-                scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-thumb.jpg'))
-                scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-clip.jpg'))
-                scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '.json'))
+            path = os.path.join(config['local_path'], config['prefix'] + '-clip.jpg')
+            with open(path, 'wb') as f:
+                f.write(clip_bytes.getbuffer().tobytes())
+            os.chown(path, uid, gid)
+
+            path = os.path.join(config['local_path'], config['prefix'] + '.json')
+            with open(path, 'wb') as f:
+                f.write(json_bytes.getbuffer().tobytes())
+            os.chown(path, uid, gid)
+
+        if 'remote_path' in config:
+            with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
+                key = RSAKey.from_private_key(keyfile)
+
+            with SSHClient() as ssh:
+                ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
+                ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
+
+                with SCPClient(ssh.get_transport()) as scp:
+                    scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-thumb.jpg'))
+                    scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-clip.jpg'))
+                    scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '.json'))
     except Exception:
         print('failed to generate dashboard preview with error:')
         traceback.print_exc(file=sys.stdout)
