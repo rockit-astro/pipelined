@@ -511,6 +511,7 @@ def update_dashboard(header, data, config, process_steps, process_time):
             'date': header['DATE-OBS'],
             'src': header.get('TIME-SRC', ''),
             'exptime': header['EXPTIME'],
+            'filter': header.get('FILTER', ''),
             'type': header.get('IMAGETYP', ''),
             'object': header.get('OBJECT', ''),
             'saved': header['FILESAVE'],
