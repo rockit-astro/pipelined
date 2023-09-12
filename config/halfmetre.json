@@ -233,11 +233,10 @@
     {
       "key": "TELFOC",
       "comment": "[steps] nominal telescope focus",
-      "camera": "CAM1",
       "type": "int",
       "daemon": "halfmetre_focuser",
       "method": "report_status",
-      "parameter": "current_steps"
+      "parameter": "current_steps_1"
     },
     {
       "key": "PRITEMP",
