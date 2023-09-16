@@ -218,7 +218,7 @@ def add_environment_header(header, info, log_name, environment_cards, environmen
 
 def add_pipeline_header(header, info, filename):
     """Adds pipeline configuration to the frame header"""
-    desc = fits.Card('COMMENT', ' ---               DATA PIPELINE               --- ')
+    desc = fits.Card('COMMENT', ' ---              DATA PIPELINE              --- ')
     header.append(fits.Card(None, None), end=True)
     header.append(desc, end=True)
 
@@ -777,7 +777,10 @@ def process_frames(processing_queue, camera_config,
 
             # Strip empty rows from the end of the header
             # fits blocks are 2880 bytes, which can hold 36 80 byte header cards.
-            header_block_capacity = (len(header) + 35) // 36
+            # The loaded header does not include the final END card, so in the event
+            # that len(header) is a multiple of 36 we know that there must be one
+            # extra block
+            header_block_capacity = len(header) // 36 + 1
             while header.cards[-1][0] == '' and header.cards[-1][1] == '':
                 header.pop()
 
@@ -867,24 +870,7 @@ def process_frames(processing_queue, camera_config,
 
             if output_filename:
                 # Replace header directly in the input file before moving to the final output location
-                block_count = (len(header) + 35) // 36
-                if block_count > header_block_capacity:
-                    # Not enough space to fit all the keys!
-                    truncated = 0
-                    while len(header) > 36 * header_block_capacity - 1:
-                        truncated += 1
-                        header.pop()
-                    header.append(fits.Card('COMMENT', f' WARNING: {truncated} header cards truncated', ''))
-
-                # It is very likely that we will have more than 36 cards of unused capacity if WCS solutions
-                # are disabled. The fits specification requires that the END card is within the block immediately
-                # before the data starts, so pad the header with blank cards to do this.
-                padding = max(0, 36 * (header_block_capacity - 1) - len(header))
-                for _ in range(padding):
-                    header.append(fits.Card(None, None))
-
-                with open(loadpath, 'r+b') as f:
-                    f.write(header.tostring().encode('ascii'))
+                write_fits_header(loadpath, header, header_block_capacity)
 
                 savepath = os.path.join(camera_config['output_data_path'], info['output_subdirectory'], output_filename)
                 shutil.move(loadpath, savepath)
@@ -908,6 +894,30 @@ def process_frames(processing_queue, camera_config,
                     os.remove(loadpath)
             except Exception:
                 print('Failed to delete temporary frame: ' + loadpath, flush=True)
+
+
+def write_fits_header(loadpath, header, header_block_capacity):
+    # Is there enough space to fit all the cards?
+    # We need at least one line free for the END card
+    truncated = 0
+    while len(header) > 36 * header_block_capacity - 1:
+        truncated += 1
+        header.pop()
+
+    if truncated:
+        # Make space for the truncation warning
+        header.pop()
+        header.append(fits.Card('COMMENT', f' WARNING: {truncated + 1} header cards truncated', ''))
+
+    # It is very likely that we will have more than 36 cards of unused capacity if WCS solutions
+    # are disabled. The fits specification requires that the END card is within the block immediately
+    # before the data starts, so pad the header with blank cards to do this.
+    padding = max(0, 36 * (header_block_capacity - 1) - len(header))
+    for _ in range(padding):
+        header.append(fits.Card(None, None))
+
+    with open(loadpath, 'r+b') as f:
+        f.write(header.tostring().encode('ascii'))
 
 
 class PipelineWorkerDaemon:
