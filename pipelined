@@ -43,7 +43,6 @@ class PipelineDaemon:
         self._dashboard_enabled = True
 
         self._guide_camera_id = None
-        self._custom_headers = []
 
         # Information for building the output filename
         self._output_subdirectory = '.'
@@ -94,7 +93,6 @@ class PipelineDaemon:
             'camera_id': camera_id,
             'filename': filename,
             'guide_profiles': self._guide_camera_id == camera_id,
-            'custom_headers': self._custom_headers,
             'wcs_enabled': self._wcs_enabled,
             'rotation_enabled': self._rotation_enabled,
             'hfd_enabled': self._hfd_enabled,
@@ -300,7 +298,6 @@ class PipelineDaemon:
               intstats: Calculate basic intensity statistics (True/False)
               hfd: Calculate median half-flux diameters from objects in the image (True/False)
               guide: Calculate guide profiles for the given camera
-              headers: Array of keyword/value/comment entries to append to the frame header
            Any properties not specified in params will be reset to its default
         """
         if not pyro_client_matches(self._config.control_ips):
@@ -354,10 +351,6 @@ class PipelineDaemon:
             if not quiet:
                 log.info(self._config.log_name, 'Guide profiles ' +
                          ('on ' + self._guide_camera_id if self._guide_camera_id else 'disabled'))
-
-            self._custom_headers = params.get('headers', [])
-            if not quiet:
-                log.info(self._config.log_name, f'Defined {len(self._custom_headers)} custom header(s)')
 
             return CommandStatus.Succeeded
 

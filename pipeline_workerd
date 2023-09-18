@@ -237,10 +237,17 @@ def add_pipeline_header(header, info, filename):
     else:
         header.append(fits.Card('COMMENT', ' OBJECT not available', ''))
 
-    for entry in info['custom_headers']:
-        keyword = entry.get('keyword', None)
-        value = entry.get('value', None)
-        comment = entry.get('comment', None)
+
+def add_operations_header(header, cards):
+    """Adds custom action information to the frame header"""
+    desc = fits.Card('COMMENT', ' ---         OPERATIONS INFORMATION          --- ')
+    header.append(fits.Card(None, None), end=True)
+    header.append(desc, end=True)
+
+    for card in cards:
+        keyword = card.get('keyword', None)
+        value = card.get('value', None)
+        comment = card.get('comment', None)
         if keyword and value is not None:
             header.append(fits.Card(keyword[0:8], value, comment), end=True)
 
@@ -593,11 +600,12 @@ def update_dashboard(header, data, config, process_steps, process_time):
 def notify_opsd(header, ops_daemon, log_name):
     try:
         with ops_daemon.connect() as ops:
-            ops.notify_processed_frame(header_to_dict(header))
+            return ops.notify_processed_frame(header_to_dict(header))
 
     except Exception as e:
-        log.error(log_name, 'Failed to notify operations daemon of completed frame (' + str(e) + ')')
+        log.error(log_name, f'Failed to notify operations daemon of completed frame ({e})')
         sys.stdout.flush()
+        return None
 
 
 def notify_guide_profiles(header, data, log_name, ops_daemon):
@@ -609,10 +617,12 @@ def notify_guide_profiles(header, data, log_name, ops_daemon):
 
     try:
         with ops_daemon.connect() as ops:
-            ops.notify_guide_profiles(header_to_dict(header), profile_x, profile_y)
+            return ops.notify_guide_profiles(header_to_dict(header), profile_x, profile_y)
 
     except Exception as e:
-        log.error(log_name, 'Failed to notify operations daemon of guide profiles (' + str(e) + ')')
+        log.error(log_name, f'Failed to notify operations daemon of guide profiles ({e})')
+        sys.stdout.flush()
+        return None
 
 
 def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
@@ -800,8 +810,9 @@ def process_frames(processing_queue, camera_config,
                 data_background.subfrom(data_bgsubtracted)
                 steps.append('background')
 
+            guide_cards = None
             if guide_profiles_stale and ops_daemon is not None:
-                notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
+                guide_cards = notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
                 steps.append('guiding')
 
             move_bscale_bzero(header)
@@ -865,8 +876,17 @@ def process_frames(processing_queue, camera_config,
                     preview_queue.put((None, header, grid))
                 steps.append('hfd_grid')
 
-            if  ops_daemon is not None:
-                notify_opsd(header, ops_daemon, log_name)
+            ops_cards = None
+            if ops_daemon is not None:
+                ops_cards = notify_opsd(header, ops_daemon, log_name)
+
+            if ops_cards or guide_cards:
+                cards = []
+                if ops_cards:
+                    cards.extend(ops_cards)
+                if guide_cards:
+                    cards.extend(guide_cards)
+                add_operations_header(header, cards)
 
             if output_filename:
                 # Replace header directly in the input file before moving to the final output location
