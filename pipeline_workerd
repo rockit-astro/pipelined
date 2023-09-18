@@ -726,6 +726,15 @@ def process_frames(processing_queue, camera_config,
             header = fits.getheader(loadpath)
             steps = ['headers']
 
+            # Strip empty rows from the end of the header
+            # fits blocks are 2880 bytes, which can hold 36 80 byte header cards.
+            # The loaded header does not include the final END card, so in the event
+            # that len(header) is a multiple of 36 we know that there must be one
+            # extra block
+            header_block_capacity = len(header) // 36 + 1
+            while header.cards[-1][0] == '' and header.cards[-1][1] == '':
+                header.pop()
+
             # We can skip loading the frame data if we know for sure that
             # we aren't going to need it.
             data_bgsubtracted = data_cropped = data_raw = data_background = None
@@ -764,7 +773,7 @@ def process_frames(processing_queue, camera_config,
             calculate_cropped = calculate_bgsubtracted or info['intensity_stats_enabled'] or dashboard_stale
             data_raw_float = None
             if calculate_cropped or preview_stale:
-                data_raw, header = fits.getdata(loadpath, header=True)
+                data_raw = fits.getdata(loadpath)
                 steps.append('data')
 
                 if master_bias_pixel_nonuniformity is not None or master_dark_adu_per_sec is not None:
@@ -782,17 +791,6 @@ def process_frames(processing_queue, camera_config,
                         steps.append('dark')
 
                     data_raw = data_raw_float.astype(data_raw_dtype)
-            else:
-                header = fits.getheader(loadpath)
-
-            # Strip empty rows from the end of the header
-            # fits blocks are 2880 bytes, which can hold 36 80 byte header cards.
-            # The loaded header does not include the final END card, so in the event
-            # that len(header) is a multiple of 36 we know that there must be one
-            # extra block
-            header_block_capacity = len(header) // 36 + 1
-            while header.cards[-1][0] == '' and header.cards[-1][1] == '':
-                header.pop()
 
             if calculate_cropped:
                 data_cropped, crop_x, crop_y = window_header_region(header, data_raw,
