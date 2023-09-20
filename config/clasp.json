@@ -46,7 +46,7 @@
         "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-CAM1",
-        "flip_vertical": true,
+        "flip_vertical": false,
         "flip_horizontal": false,
         "min_threshold": 5,
         "max_threshold": 95,
