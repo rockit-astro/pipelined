@@ -805,6 +805,11 @@ def process_frames(processing_queue, camera_config,
 
                     data_raw = data_raw_float.astype(data_raw_dtype)
 
+                    # Avoid negative values wrapping to large positive values
+                    limits = np.iinfo(data_raw_dtype)
+                    data_raw[data_raw_float <= limits.min] = limits.min
+                    data_raw[data_raw_float >= limits.max] = limits.max
+
             if calculate_cropped:
                 data_cropped, crop_x, crop_y = window_header_region(header, data_raw,
                                                                     camera_config.get('image_region_card', None))
