@@ -1,7 +1,7 @@
 {
   "daemon": "superwasp_pipeline",
   "log_name": "pipelined@superwasp",
-  "control_machines": ["SWASPTCS"],
+  "control_machines": ["SWASPTCS", "SWASPDAS1", "SWASPDAS2"],
   "notify_frame_machines": ["SWASPCameraVM1", "SWASPCameraVM2", "SWASPCameraVM3", "SWASPCameraVM4"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
