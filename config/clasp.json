@@ -13,7 +13,7 @@
       "worker_daemon": "clasp_pipeline_cam1",
       "worker_processes": 8,
       "input_data_path": "/data/incoming",
-      "output_data_path": "/data/raw",
+      "output_data_path": "/data/clasp",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
