@@ -85,6 +85,11 @@ def rescale_image_data(data, clip_low, clip_high):
     """
     high = np.percentile(data, clip_high)
     low = np.percentile(data, clip_low)
+
+    # Avoid a divide-by-zero
+    if high == low:
+        high = low + 1
+
     scale = 255. / (high - low)
     data = np.clip(data, low, high)
     return scale * (data - low)
