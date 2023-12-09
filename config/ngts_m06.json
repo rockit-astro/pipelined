@@ -1,0 +1,246 @@
+{
+  "daemon": "ngts_m06_pipeline",
+  "log_name": "pipelined@ngts_m06",
+  "control_machines": ["NGTSDASNUC"],
+  "notify_frame_machines": ["NGTSDASNUC"],
+  "environment_daemon": "ngts_environment",
+  "environment_query_timeout": 1,
+  "telescope_query_timeout": 1,
+  "ops_daemon": "ngts_m06_operations",
+  "guiding_min_interval": 5,
+  "cameras": {
+    "814": {
+      "worker_daemon": "ngts_m06_pipeline_cam",
+      "worker_processes": 8,
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
+      "output_filename_add_camera_id": true,
+      "output_filename_add_filter": false,
+      "binning_card": "CAM-BIN",
+      "image_region_card": "IMAG-RGN",
+      "overscan_region_card": "BIAS-RGN",
+      "platescale": 4,
+      "object_minpix": 16,
+      "preview_min_interval": 5,
+      "preview_max_instances": 5,
+      "preview_ds9_width": 680,
+      "preview_ds9_height": 680,
+      "preview_ds9_zoom": 0.5,
+      "preview_ds9_annotation_margin": 175,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 5,
+      "wcs": {
+        "scale_low": 3.5,
+        "scale_high": 4.5,
+        "timeout": 4.0,
+        "tel_ra_card": "TELRA",
+        "tel_dec_card": "TELDEC",
+        "search_radius": 1.75
+      }
+    }
+  },
+  "environment_cards": [
+    {
+      "key": "EXTTEMP",
+      "comment": "[deg c] temperature outside enclosure",
+      "sensor": "sentinel",
+      "parameter": "temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "EXTHUMD",
+      "comment": "[%] humidity outside enclosure",
+      "sensor": "sentinel",
+      "parameter": "relative_humidity",
+      "type": "float1dp"
+    },
+    {
+      "key": "PRESSURE",
+      "comment": "[hPa] air pressure",
+      "sensor": "sentinel",
+      "parameter": "pressure",
+      "type": "float1dp"
+    },
+    {
+      "key": "WINDSPD",
+      "comment": "[m/s] wind speed outside dome",
+      "sensor": "sentinel",
+      "parameter": "wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "MEDWIND",
+      "comment": "[m/s] median wind speed (last 20 min)",
+      "sensor": "sentinel",
+      "parameter": "median_wind_speed",
+      "type": "float1dp"
+    },
+    {
+      "key": "DEWDELTA",
+      "comment": "[deg c] temperature above dew point",
+      "sensor": "sentinel",
+      "parameter": "dew_point_delta",
+      "type": "float1dp"
+    },
+    {
+      "key": "SKYTEMP",
+      "comment": "[deg c] sky temperature",
+      "sensor": "sentinel",
+      "parameter": "sky_temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "SUNALT",
+      "comment": "[deg] sun altitude",
+      "sensor": "ephem",
+      "parameter": "sun_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONALT",
+      "comment": "[deg] moon altitude",
+      "sensor": "ephem",
+      "parameter": "moon_alt",
+      "type": "float1dp"
+    },
+    {
+      "key": "MOONPCT",
+      "comment": "[%] moon illumination",
+      "sensor": "ephem",
+      "parameter": "moon_percent_illumination",
+      "type": "float1dp"
+    }
+  ],
+  "telescope_cards": [
+    {
+      "key": "TELSTATE",
+      "comment": "telescope status",
+      "type": "string",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "state_label"
+    },
+    {
+      "key": "ROOFSTAT",
+      "comment": "roof status",
+      "type": "string",
+      "daemon": "ngts_sentinel",
+      "method": "last_measurement",
+      "parameter": "roof_state"
+    },
+    {
+      "key": "TELRA",
+      "comment": "telescope nominal J2000 RA",
+      "type": "sexagesimalha",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "TELDEC",
+      "comment": "telescope nominal J2000 Dec",
+      "type": "sexagesimaldeg",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "TELHA",
+      "comment": "telescope nominal HA",
+      "type": "sexagesimalha",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "TELRAD",
+      "comment": "[deg] telescope nominal J2000 RA",
+      "type": "float5dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "TELDECD",
+      "comment": "[deg] telescope nominal J2000 Dec",
+      "type": "float5dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "TELHAD",
+      "comment": "[deg] telescope nominal hour angle",
+      "type": "float5dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "ALTITUDE",
+      "comment": "[deg] telescope nominal altitude",
+      "type": "float5dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "alt"
+    },
+    {
+      "key": "AZIMUTH",
+      "comment": "[deg] telescope nominal azimuth",
+      "type": "float5dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "az"
+    },
+    {
+      "key": "TELFOC",
+      "comment": "[mm] nominal telescope focus",
+      "type": "float1dp",
+      "daemon": "ngts_m06_focuser",
+      "method": "report_status",
+      "parameter": "current_mm"
+    },
+    {
+      "key": "SITELAT",
+      "comment": "telescope latitude (north)",
+      "type": "sexagesimaldeg",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "site_latitude"
+    },
+    {
+      "key": "SITELONG",
+      "comment": "telescope longitude (east)",
+      "type": "sexagesimaldeg",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "site_longitude"
+    },
+    {
+      "key": "SITEELEV",
+      "comment": "[m] telescope elevation",
+      "type": "int",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "site_elevation"
+    },
+    {
+      "key": "MOONSEP",
+      "comment": "[deg] nominal distance from moon",
+      "type": "float1dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "moon_separation"
+    },
+    {
+      "key": "SUNSEP",
+      "comment": "[deg] nominal distance from sun",
+      "type": "float1dp",
+      "daemon": "ngts_m06_telescope",
+      "method": "report_status",
+      "parameter": "sun_separation"
+    }
+  ]
+}

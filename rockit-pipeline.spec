@@ -45,6 +45,9 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/warwick.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/warwick.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/ngts_m06.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/ngts_m06.args %{buildroot}%{_sysconfdir}/pipelined
+
 %package server
 Summary:  Data pipeline server
 Group:    Unspecified
@@ -130,5 +133,15 @@ Group:   Unspecified
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/warwick.json
 %{_sysconfdir}/pipelined/warwick.args
+
+%package data-ngts-m06
+Summary: Data pipeline configuration for NGTS M06.
+Group:   Unspecified
+%description data-ngts-m06
+
+%files data-ngts-m06
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/ngts_m06.json
+%{_sysconfdir}/pipelined/ngts_m06.args
 
 %changelog
