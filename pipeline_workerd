@@ -168,11 +168,11 @@ def add_telescope_header(header, info, log_name, telescope_cards, telescope_quer
 
         try:
             with card['daemon'].connect(telescope_query_timeout) as d:
-                data[key] = getattr(d, card['method'])()
+                data[key] = getattr(d, card['method'])() or {}
         except Exception as e:
             log.error(log_name, 'Failed to query telescope metadata (' + str(e) + ')')
             sys.stdout.flush()
-            data[card['daemon']] = {'data': {}}
+            data[card['daemon']] = {}
 
     # Build cards
     for card in telescope_cards:
