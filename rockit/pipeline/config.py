@@ -100,7 +100,7 @@ CONFIG_SCHEMA = {
                     'type': {
                         'type': 'string',
                         'enum': [
-                            'float1dp', 'float2dp', 'float5dp',
+                            'float1dp', 'float2dp', 'float3dp', 'float5dp',
                             'int', 'string', 'bool'
                         ]
                     }
@@ -143,7 +143,7 @@ CONFIG_SCHEMA = {
                     'type': {
                         'type': 'string',
                         'enum': [
-                            'float1dp', 'float2dp', 'float5dp',
+                            'float1dp', 'float2dp', 'float3dp', 'float5dp',
                             'sexagesimalha', 'sexagesimaldeg',
                             'int', 'string', 'bool'
                         ]

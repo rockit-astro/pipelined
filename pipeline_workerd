@@ -99,6 +99,7 @@ def create_formatted_card(key, value, comment, format_type):
     float_places = {
         'float1dp': 1,
         'float2dp': 2,
+        'float3dp': 3,
         'float5dp': 5
     }
 

@@ -79,7 +79,7 @@ The configuration options are:
       "comment": "[deg c] temperature outside dome", # Header comment.
       "sensor": "w1m_vaisala", # sensor in the environmentd data dictionary.
       "parameter": "temperature", # parameter under the sensor block in the environmentd data dictionary.
-      "type": "float1dp" # Format type (float1dp, float2dp, float5dp, int, string, bool).
+      "type": "float1dp" # Format type (float1dp, float2dp, float3dp, float5dp, int, string, bool).
     }
     # Additional header cards can be defined.
   ],
@@ -87,7 +87,7 @@ The configuration options are:
     {
       "key": "TELSWVER", # Header keyword.
       "comment": "tcs server software version", # Header comment.
-      "type": "string", # Format type (float1dp, float2dp, float5dp, int, string, bool).
+      "type": "string", # Format type (float1dp, float2dp, float3dp, float5dp, int, string, bool).
       "daemon": "localhost_test3", # The daemon that should be queried. It must define a report_status method.
       "parameter": "software_version" # The parameter in the report_status data.
     }

@@ -197,7 +197,7 @@
     {
       "key": "TELFOC",
       "comment": "[mm] nominal telescope focus",
-      "type": "float1dp",
+      "type": "float3dp",
       "daemon": "ngts_m06_focuser",
       "method": "report_status",
       "parameter": "current_mm"
