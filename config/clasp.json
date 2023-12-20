@@ -8,6 +8,16 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "clasp_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "CLASPTCS",
+      "daemon": "clasp_pipeline_preview_tcs"
+    },
+    {
+      "machine": "CLASPDAS",
+      "daemon": "clasp_pipeline_preview_das"
+    }
+  ],
   "cameras": {
     "CAM1": {
       "worker_daemon": "clasp_pipeline_cam1",

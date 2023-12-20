@@ -8,6 +8,20 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "superwasp_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "SWASPTCS",
+      "daemon": "superwasp_pipeline_preview_tcs"
+    },
+    {
+      "machine": "SWASPDAS1",
+      "daemon": "superwasp_pipeline_preview_das1"
+    },
+    {
+      "machine": "SWASPDAS2",
+      "daemon": "superwasp_pipeline_preview_das2"
+    }
+  ],
   "cameras": {
     "CAM1": {
       "worker_daemon": "superwasp_pipeline_cam1",

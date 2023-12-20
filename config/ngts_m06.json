@@ -8,6 +8,12 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "ngts_m06_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "NGTSDASNUC",
+      "daemon": "ngts_m06_pipeline_preview"
+    }
+  ],
   "cameras": {
     "814": {
       "worker_daemon": "ngts_m06_pipeline_cam",

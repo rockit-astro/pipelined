@@ -270,7 +270,7 @@ def register_preview(config, args):
             if names is None or not any(n.startswith('DS9:'+name) for n in names):
                 break
 
-        ds9 = pyds9.DS9(name, wait=10)
+        ds9 = pyds9.DS9(name, wait=30)
         port = int(ds9.access().split(':')[-1])
 
         ds9.set('view filename no')
@@ -289,11 +289,8 @@ def register_preview(config, args):
         print('error: failed to open DS9 preview window')
         return -1
 
-    with config.daemon.connect() as pipeline:
-        # Note: If the server is running on a different machine a ssh tunnel will be created
-        # back to this client machine. This requires that key-based ssh has been configured
-        # from the server machine to this client machine.
-        return pipeline.register_preview(camera_id, os.getlogin(), port)
+    with config.local_preview_daemon.connect() as preview_host:
+        return preview_host.register_preview(camera_id, port)
 
 
 def reset(config, _):

@@ -8,6 +8,12 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "halfmetre_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "HalfMetreTCS",
+      "daemon": "halfmetre_pipeline_preview"
+    }
+  ],
   "cameras": {
     "HALFMETRE": {
       "worker_daemon": "halfmetre_pipeline_cam",

@@ -17,6 +17,7 @@
 """Helper function to validate and parse the json config file"""
 
 import json
+import socket
 from rockit.common import daemons, IP, validation
 
 CONFIG_SCHEMA = {
@@ -66,6 +67,26 @@ CONFIG_SCHEMA = {
         'guiding_min_interval': {
             'type': 'number',
             'minimum': 0,
+        },
+        'preview_hosts': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'required': [
+                    'machine', 'daemon'
+                ],
+                'properties': {
+                    'machine': {
+                        'type': 'string',
+                        'machine_name': True
+                    },
+                    'daemon': {
+                        'type': 'string',
+                        'daemon_name': True
+                    }
+                }
+            }
         },
         'cameras': {
             'type': 'object',
@@ -394,3 +415,20 @@ class Config:
             self.telescope_query_timeout = config_json['telescope_query_timeout']
             for card in self.telescope_cards:
                 card['daemon'] = getattr(daemons, card['daemon'])
+
+        self.preview_host_daemon_names = {}
+        for host in config_json.get('preview_hosts', []):
+            ip = getattr(IP, host['machine'])
+            self.preview_host_daemon_names[ip] = host['daemon']
+
+    @property
+    def local_preview_daemon(self):
+        """
+        Returns the daemon object for the local pipeline preview host
+        """
+        local_ips = socket.gethostbyname_ex(socket.gethostname())[-1]
+        for host, daemon_name in self.preview_host_daemon_names.items():
+            if host in local_ips:
+                return getattr(daemons, daemon_name)
+
+        return None

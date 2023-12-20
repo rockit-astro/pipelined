@@ -25,6 +25,7 @@
 
 import argparse
 import array
+import base64
 import datetime
 import grp
 import io
@@ -35,7 +36,6 @@ import pwd
 import queue
 import re
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
@@ -50,7 +50,6 @@ from astropy.wcs import WCS
 import numpy as np
 from paramiko import SSHClient, RSAKey
 from PIL import Image, ImageOps
-import pyds9
 import Pyro4
 from scp import SCPClient
 import sep
@@ -631,47 +630,41 @@ def notify_guide_profiles(header, data, log_name, ops_daemon):
         return None
 
 
-def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
+def process_previews(log_name, camera_id, preview_queue, preview_hosts_enabled, preview_hosts_daemon_names):
     """A thread running in each processing process that allows ds9 preview updates
        to run concurrently with the main processing work.
      """
+    preview_hosts_daemons = [getattr(daemons, name) for name in preview_hosts_daemon_names]
     while True:
         # Block until a preview is available
         data, header, annotations = preview_queue.get()
-
-        with ds9_preview_xpa_lock:
-            for i, port in enumerate(ds9_preview_ports):
-                if port == 0:
-                    continue
-
+        info = None
+        for i in range(len(preview_hosts_enabled)):
+            if preview_hosts_enabled[i]:
                 try:
-                    p = pyds9.DS9('7f000001:' + str(port), start=False, wait=1)
-                    if data is not None:
-                        hdu = fits.PrimaryHDU(data, header=header)
-                        move_bscale_bzero(hdu.header)
-                        p.set_pyfits(fits.HDUList(hdu))
+                    with preview_hosts_daemons[i].connect() as preview_host:
+                        if info is None:
+                            info = {
+                                'annotations': annotations
+                            }
 
-                    for annotation in annotations:
-                        if isinstance(annotation, tuple):
-                            p.set(annotation[0], annotation[1])
-                        else:
-                            p.set(annotation)
+                            if data is not None:
+                                start = Time.now()
+                                info['data'] = base64.b85encode(data.ravel()).decode('ascii')
+                                print(f'Serialisation took {(Time.now() - start).to_value(u.s):.2f} ({len(info["data"])} bytes)')
+                                info['dtype'] = str(data.dtype.str)
+
+                            if header:
+                                info['header'] = header_to_dict(header)
+
+                        preview_host.notify_frame(camera_id, info)
                 except Exception as e:
-                    socket_path = '/tmp/pipelined-' + str(port)
-                    if os.path.exists(socket_path):
-                        subprocess.check_call([
-                            'ssh',
-                            '-S', socket_path,
-                            '-O', 'exit',
-                            'localhost'
-                        ])
-
-                    ds9_preview_ports[i] = 0
-                    print(f'unregistering preview {port}: {e}', flush=True)
+                    log.error(log_name, f'Failed to notify preview host daemon of completed frame ({e})')
+                    preview_hosts_enabled[i] = 0
 
 
-def process_frames(processing_queue, camera_config,
-                   preview_timestamp, ds9_preview_ports, ds9_preview_xpa_lock,
+def process_frames(processing_queue, camera_id, camera_config,
+                   preview_timestamp, preview_hosts_enabled, preview_hosts_daemon_names,
                    guide_timestamp, guide_min_interval,
                    dashboard_timestamp, log_name,
                    environment_cards, environment_daemon_name, environment_query_timeout,
@@ -691,7 +684,7 @@ def process_frames(processing_queue, camera_config,
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
     threading.Thread(target=process_previews, daemon=True,
-                     args=(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock)
+                     args=(log_name, camera_id, preview_queue, preview_hosts_enabled, preview_hosts_daemon_names)
                      ).start()
 
     # Apply bias/dark corrections if required
@@ -768,7 +761,7 @@ def process_frames(processing_queue, camera_config,
                         guide_profiles_stale = True
 
             preview_stale = False
-            if any(ds9_preview_ports):
+            if any(preview_hosts_enabled):
                 with preview_timestamp.get_lock():
                     next_preview_time = Time(preview_timestamp.value.decode('ascii')) + \
                         camera_config['preview_min_interval'] * u.s
@@ -970,15 +963,13 @@ class PipelineWorkerDaemon:
         self._guide_timestamp = multiprocessing.Array('c', start_timestamp)
         self._dashboard_timestamp = multiprocessing.Array('c', start_timestamp)
 
-        # Use 0 to indicate an unregistered preview slot
-        self._ds9_preview_ports = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
-        self._ds9_preview_registration_lock = threading.Lock()
-        self._ds9_preview_xpa_lock = multiprocessing.Lock()
+        self._preview_hosts_enabled = multiprocessing.Array('B', [0] * len(config.preview_host_daemon_names))
+        preview_hosts_daemon_names = list(config.preview_host_daemon_names.values())
 
         for _ in range(self._camera_config['worker_processes']):
             multiprocessing.Process(target=process_frames, daemon=True, args=(
-                self._processing_queue, self._camera_config,
-                self._preview_timestamp, self._ds9_preview_ports, self._ds9_preview_xpa_lock,
+                self._processing_queue, camera_id, self._camera_config,
+                self._preview_timestamp, self._preview_hosts_enabled, preview_hosts_daemon_names,
                 self._guide_timestamp, config.guiding_min_interval,
                 self._dashboard_timestamp, config.log_name,
                 config.environment_cards, config.environment_daemon_name, config.environment_query_timeout,
@@ -1021,53 +1012,12 @@ class PipelineWorkerDaemon:
         self._processing_queue.put(info)
 
     @Pyro4.expose
-    def register_preview(self, user, host, port):
-        """Register a ds9 window for previews"""
-        if not pyro_client_matches([self._config.daemon.host]):
-            return CommandStatus.InvalidControlIP
-
-        with self._ds9_preview_registration_lock:
-            total = len(self._ds9_preview_ports)
-            for i in range(total + 1):
-                if i == total:
-                    return CommandStatus.TooManyPreviews
-
-                if self._ds9_preview_ports[i] == 0:
-                    break
-
-            if host != self._camera_daemon.host:
-                try:
-                    # pyds9 will fail unless the local and remote ports are the same, so we need
-                    # the same port to be free on both client and server.
-                    # This check may race against another process stealing the port, but this
-                    # should be rare enough that the user can just run the preview command again.
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        if s.connect_ex(('localhost', port)) == 0:
-                            return CommandStatus.TunnelPortInUse
-
-                    # Create a ssh tunnel using multiplexing to simplify closing it later
-                    # Inspired by https://stackoverflow.com/questions/4364355/how-to-open-an-ssh-tunnel-using-python
-                    # This requires key-based ssh access has been configured from the server to the calling client!
-                    socket_path = '/tmp/pipelined-' + str(port)
-                    subprocess.check_call([
-                        'ssh', '-MfN',
-                        '-S', socket_path,
-                        '-L', f'{port}:127.0.0.1:{port}',
-                        '-o', 'ExitOnForwardFailure=yes',
-                        f'{user}@{host}'
-                    ])
-
-                    subprocess.check_call([
-                        'ssh',
-                        '-S', socket_path,
-                        '-O', 'check',
-                        'localhost'
-                    ])
-                except Exception:
-                    return CommandStatus.TunnelCreationFailed
-
-            self._ds9_preview_ports[i] = port
-        return CommandStatus.Succeeded
+    def enable_previews(self, enabled):
+        """Called by the pipeline preview host daemons to enable or disable preview notifications."""
+        client_ip = Pyro4.current_context.client.sock.getpeername()[0]
+        for i, key in enumerate(self._config.preview_host_daemon_names.keys()):
+            if client_ip == key:
+                self._preview_hosts_enabled[i] = enabled
 
 
 if __name__ == '__main__':

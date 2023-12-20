@@ -1,0 +1,13 @@
+[Unit]
+Description=Daemon for displaying ds9 previews of images produced by *_camd.
+After=syslog.target
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Restart=on-failure
+Type=simple
+ExecStart=/usr/bin/env python3 -u /usr/bin/pipeline_previewd /etc/pipelined/%i.json
+
+[Install]
+WantedBy=multi-user.target

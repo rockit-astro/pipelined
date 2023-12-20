@@ -8,6 +8,16 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "onemetre_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "OneMetreDome",
+      "daemon": "onemetre_pipeline_preview_dome"
+    },
+    {
+      "machine": "OneMetreTCS",
+      "daemon": "onemetre_pipeline_preview_tcs"
+    }
+  ],
   "cameras": {
     "BLUE": {
       "worker_daemon": "onemetre_pipeline_blue",

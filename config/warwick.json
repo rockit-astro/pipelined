@@ -8,6 +8,12 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "warwick_operations",
   "guiding_min_interval": 5,
+  "preview_hosts": [
+    {
+      "machine": "WarwickTCS",
+      "daemon": "warwick_pipeline_preview"
+    }
+  ],
   "cameras": {
     "QHY600M": {
       "worker_daemon": "warwick_pipeline_cam",

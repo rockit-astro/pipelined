@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+#
+# This file is part of the Robotic Observatory Control Kit (rockit)
+#
+# rockit is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# rockit is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with rockit.  If not, see <http://www.gnu.org/licenses/>.
+
+"""Frame pipeline daemon"""
+
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
+
+
+import argparse
+import base64
+import multiprocessing
+import queue
+import threading
+from astropy.io import fits
+import numpy as np
+import pyds9
+import Pyro4
+from rockit.common import daemons
+from rockit.common.helpers import pyro_client_matches
+from rockit.pipeline import CommandStatus, Config
+
+
+def process_previews(preview_queue, ds9_preview_ports, ds9_preview_registration_lock, worker_daemon_name):
+    worker_daemon = getattr(daemons, worker_daemon_name)
+    from astropy.time import Time
+    import astropy.units as u
+    while True:
+        # Block until a preview is available
+        info = preview_queue.get()
+
+        # Skip past any stale previews
+        try:
+            while True:
+                info = preview_queue.get_nowait()
+        except queue.Empty:
+            pass
+
+        hdu_list = None
+        if 'data' in info and 'header' in info:
+            start = Time.now()
+            buf = base64.b85decode(info['data'].encode('ascii'))
+            print(f'Deserialisation took {(Time.now() - start).to_value(u.s):.2f}')
+            data = np.frombuffer(buf, dtype=info['dtype']).reshape((info['header']['NAXIS2'], info['header']['NAXIS1']))
+            hdu_list = fits.HDUList(fits.PrimaryHDU(data, header=fits.Header(info['header'])))
+
+        for i, port in enumerate(ds9_preview_ports):
+            if port == 0:
+                continue
+
+            try:
+                p = pyds9.DS9(f'7f000001:{port}', start=False, wait=1)
+                if hdu_list:
+                    p.set_pyfits(hdu_list)
+
+                for annotation in info['annotations']:
+                    if isinstance(annotation, tuple):
+                        p.set(annotation[0], annotation[1])
+                    else:
+                        p.set(annotation)
+            except Exception as e:
+                with ds9_preview_registration_lock:
+                    print(f'unregistering preview {port}: {e}', flush=True)
+                    ds9_preview_ports[i] = 0
+                    if not any(ds9_preview_ports):
+                        try:
+                            with worker_daemon.connect() as worker:
+                                worker.enable_previews(False)
+                        except:
+                            pass
+
+
+class PipelinePreviewHostDaemon:
+    """Camera-specific pipeline worker"""
+    def __init__(self, config):
+        self._config = config
+
+        self._ds9_preview_ports = {}
+        self._ds9_preview_registration_locks = {}
+        self._preview_queues = {}
+
+        for camera_id in config.cameras:
+            # Use 0 to indicate an unregistered preview slot
+            instances = config.cameras[camera_id]['preview_max_instances']
+            worker_daemon_name = config.cameras[camera_id]['worker_daemon']
+            self._ds9_preview_ports[camera_id] = multiprocessing.Array('I', [0] * instances)
+            self._ds9_preview_registration_locks[camera_id] = threading.Lock()
+            self._preview_queues[camera_id] = queue.Queue()
+
+            # Update previews on in separate processes to avoid blocking
+            threading.Thread(target=process_previews, daemon=True,
+                                    args=(self._preview_queues[camera_id], self._ds9_preview_ports[camera_id],
+                                          self._ds9_preview_registration_locks[camera_id], worker_daemon_name)
+                                    ).start()
+
+    @Pyro4.expose
+    def notify_frame(self, camera_id, info):
+        camera_config = self._config.cameras.get(camera_id, None)
+        if camera_config is None:
+            return
+
+        expected_host = getattr(daemons, camera_config['worker_daemon']).host
+        if not pyro_client_matches([expected_host]):
+            return
+
+        self._preview_queues[camera_id].put(info)
+
+    @Pyro4.expose
+    def register_preview(self, camera_id, port):
+        """Register a ds9 window for previews"""
+
+        # Only valid from the current machine
+        if not pyro_client_matches([self._config.local_preview_daemon.host]):
+            return CommandStatus.InvalidControlIP
+
+        ports = self._ds9_preview_ports.get(camera_id, None)
+        if ports is None:
+            return CommandStatus.UnknownCameraID
+
+        with self._ds9_preview_registration_locks[camera_id]:
+            total = len(ports)
+            for i in range(total + 1):
+                if i == total:
+                    return CommandStatus.TooManyPreviews
+
+                if ports[i] == 0:
+                    break
+
+            ports[i] = port
+
+        try:
+            daemon = getattr(daemons, self._config.cameras[camera_id]['worker_daemon'])
+            with daemon.connect() as worker:
+                worker.enable_previews(True)
+        except:
+            return CommandStatus.Failed
+        return CommandStatus.Succeeded
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Pipeline preview host daemon')
+    parser.add_argument('config', help='Path to configuration json file')
+    args = parser.parse_args()
+    c = Config(args.config)
+    c.local_preview_daemon.launch(PipelinePreviewHostDaemon(c))
