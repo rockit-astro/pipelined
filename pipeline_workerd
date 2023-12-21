@@ -35,7 +35,6 @@ import pwd
 import queue
 import re
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
@@ -50,15 +49,12 @@ from astropy.wcs import WCS
 import numpy as np
 from paramiko import SSHClient, RSAKey
 from PIL import Image, ImageOps
-import pyds9
 import Pyro4
 from scp import SCPClient
 import sep
 from rockit.common import daemons, log, IP
 from rockit.common.helpers import pyro_client_matches
 from rockit.pipeline import CommandStatus, Config
-
-ANNOTATION_LABEL = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
 
 
 def window_header_region(header, data, keyword):
@@ -258,26 +254,21 @@ def add_operations_header(header, cards):
             header.append(fits.Card(keyword[0:8], value, comment), end=True)
 
 
-def add_wcs_header(header, info, objects, binning, wcs_config, preview_config):
+def add_wcs_header(header, info, objects, binning, wcs_config):
     """Solves frame WCS and adds the appropriate header keys to the frame.
        Returns a list of xpa messages that can be given to update_previews"""
 
     width = header['NAXIS1']
     height = header['NAXIS2']
+    wcs_failed_card = fits.Card('WCSSOLVE', False, 'attempted wcs solution was successful?')
 
     if objects is None or len(objects) <= 0:
-        return [
-            ('regions', ANNOTATION_LABEL.format(width / 4,
-                                                -preview_config['preview_ds9_annotation_margin'],
-                                                'WCS: FAILED'))
-        ]
+        header.append(wcs_failed_card, end=True)
+        return
 
     if wcs_config is None:
-        return [
-            ('regions', ANNOTATION_LABEL.format(width / 4,
-                                                -preview_config['preview_ds9_annotation_margin'],
-                                                'WCS: UNSUPPORTED'))
-        ]
+        header.append(wcs_failed_card, end=True)
+        return
 
     try:
         table_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.xyls'
@@ -323,6 +314,8 @@ def add_wcs_header(header, info, objects, binning, wcs_config, preview_config):
         comment = 'astrometry.net wcs solution'
         with open(wcs_path, encoding='ascii') as wcs_file:
             h = wcs_file.read()
+            header.append(fits.Card('WCSSOLVE', True,
+                                    'attempted wcs solution was successful?'), end=True)
             # ds9 will only accept newline-delimited keys,
             # so we need to reformat the 80-character cards
             for line in [h[i:i+80] for i in range(0, len(h), 80)]:
@@ -333,32 +326,18 @@ def add_wcs_header(header, info, objects, binning, wcs_config, preview_config):
                     wcs_data += key + ' = ' + value + '\n'
 
                     header.append(fits.Card(card.keyword, card.value, comment), end=True)
-        annotations = [
-            ('wcs replace', wcs_data),
-            ('regions', ANNOTATION_LABEL.format(width / 5,
-                                                -preview_config['preview_ds9_annotation_margin'],
-                                                'WCS: SOLVED'))
-        ]
 
         if info['rotation_enabled']:
             wcs = WCS(header)
             coords = wcs.all_pix2world([width // 2, width // 2], [height // 2, height // 2 + 1], 0)
             north_angle = np.degrees(np.arctan2(np.diff(coords[1]), np.diff(coords[0]))).item()
-            annotations.append(('regions', ANNOTATION_LABEL.format(
-                width / 5, -2 * preview_config['preview_ds9_annotation_margin'],
-                f'ROT: North is {north_angle:.1f} deg CCW of +X')))
-
-        return annotations
+            header.append(create_float_card('FIELDROT', north_angle,
+                                            '[deg] direction of north measured ccw from +x', 2), end=True)
     except Exception:
         print('failed to update wcs with error: ')
         traceback.print_exc(file=sys.stdout)
         sys.stdout.flush()
-
-        return [
-            ('regions', ANNOTATION_LABEL.format(width / 4,
-                                                -preview_config['preview_ds9_annotation_margin'],
-                                                'WCS: FAILED'))
-        ]
+        header.append(wcs_failed_card, end=True)
 
 
 def detect_objects(data, background_rms, config, binning, crop_x, crop_y):
@@ -455,48 +434,10 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bi
         sys.stdout.flush()
 
 
-def generate_header_annotations(header, info, config):
-    """Returns the XPA commands to display the time and exposure on the live previews"""
-    width = header['NAXIS1']
-    height = header['NAXIS2']
-    timestamp = header['DATE-OBS']
-    time_src = header.get('TIME-SRC', None)
-    if time_src:
-        timestamp += f' ({time_src})'
-
-    prefix = []
-    if config['preview_display_camera_id']:
-        prefix.append(info['camera_id'])
-    if config['preview_display_filter']:
-        prefix.append(header.get('FILTER', 'UNKNOWN'))
-    exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
-
-    cam_transfer = header.get('CAM-TFER', None)
-    if cam_transfer:
-        exptime += f' ({cam_transfer})'
-
-    saved = 'SAVED' if 'FILENAME' in header else 'NOT SAVED'
-    annotations = [
-        ('regions', ANNOTATION_LABEL.format(width / 4, height + config['preview_ds9_annotation_margin'], timestamp)),
-        ('regions', ANNOTATION_LABEL.format(3 * width / 4, height + config['preview_ds9_annotation_margin'], exptime)),
-        ('regions', ANNOTATION_LABEL.format(width / 2, -config['preview_ds9_annotation_margin'], saved))
-    ]
-
-    if 'MEDHFD' in header:
-        hfd_label = ANNOTATION_LABEL.format(
-            4 * width / 5, -config['preview_ds9_annotation_margin'],
-            'HFD: ' + str(header['MEDHFD']) + ' arcsec')
-        annotations.append(('regions', hfd_label))
-
-    return annotations
-
-
-def generate_hfd_grid_annotations(header, objects, config):
-    """Returns the XPA commands to display the hfd grid overlay on the live previews"""
+def add_hfd_grid_header(header, objects, config):
+    """Adds the hfd grid samples to the frame header"""
     x_step = header['NAXIS1'] / config['hfd_grid_tiles_x']
     y_step = header['NAXIS2'] / config['hfd_grid_tiles_y']
-
-    annotations = []
     for j in range(config['hfd_grid_tiles_y']):
         for i in range(config['hfd_grid_tiles_x']):
             # pylint: disable=no-member
@@ -507,17 +448,12 @@ def generate_hfd_grid_annotations(header, objects, config):
                 objects['Y'] < y_step * (j + 1)
             ])
             # pylint: enable=no-member
-
-            x = (i + 0.5) * x_step
-            y = (j + 0.5) * y_step
             median = np.median(objects['HFD_ARCSEC'][filt])
-            annotations.append(('regions', f'box({x:.6f},{y:.6f},{x_step},{y_step}) # color=yellow'))
-            annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
-
-    return annotations
+            header.append(create_float_card(f'HFD_{j:02d}{i:02d}', median,
+                                            '[arcsec] hfd measurement', 2), end=True)
 
 
-def update_dashboard(header, data, config, process_steps, process_time):
+def update_dashboard(header, data, ssh_root_path, config, process_steps, process_time):
     try:
         size = np.shape(data)
         metadata = {
@@ -586,17 +522,20 @@ def update_dashboard(header, data, config, process_steps, process_time):
             os.chown(path, uid, gid)
 
         if 'remote_path' in config:
-            with open(f'/home/{config["user"]}/.ssh/{config["key"]}', encoding='utf-8') as keyfile:
+            with open(os.path.join(ssh_root_path, config["key"]), encoding='utf-8') as keyfile:
                 key = RSAKey.from_private_key(keyfile)
 
             with SSHClient() as ssh:
-                ssh.load_system_host_keys(f'/home/{config["user"]}/.ssh/known_hosts')
-                ssh.connect(getattr(IP, config['remote_host']), username=config['remote_user'], pkey=key)
+                ssh.load_system_host_keys(os.path.join(ssh_root_path, 'known_hosts'))
+                ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
 
                 with SCPClient(ssh.get_transport()) as scp:
-                    scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-thumb.jpg'))
-                    scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '-clip.jpg'))
-                    scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'], config['prefix'] + '.json'))
+                    scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'],
+                                                                    config['prefix'] + '-thumb.jpg'))
+                    scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'],
+                                                                   config['prefix'] + '-clip.jpg'))
+                    scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'],
+                                                                   config['prefix'] + '.json'))
     except Exception:
         print('failed to generate dashboard preview with error:')
         traceback.print_exc(file=sys.stdout)
@@ -631,53 +570,65 @@ def notify_guide_profiles(header, data, log_name, ops_daemon):
         return None
 
 
-def process_previews(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock):
+def process_previews(preview_queue, ssh_root_path, preview_client_config, preview_client_indexes, preview_ds9_ports,
+                     preview_lock):
     """A thread running in each processing process that allows ds9 preview updates
        to run concurrently with the main processing work.
      """
+    ssh = SSHClient()
+    ssh.load_system_host_keys(os.path.join(ssh_root_path, 'known_hosts'))
+
     while True:
         # Block until a preview is available
-        data, header, annotations = preview_queue.get()
+        data, header = preview_queue.get()
+        data_bytes = io.BytesIO()
 
-        with ds9_preview_xpa_lock:
-            for i, port in enumerate(ds9_preview_ports):
+        with preview_lock:
+            for i, port in enumerate(preview_ds9_ports):
                 if port == 0:
                     continue
 
                 try:
-                    p = pyds9.DS9('7f000001:' + str(port), start=False, wait=1)
+                    config = preview_client_config[preview_client_indexes[i]]
                     if data is not None:
                         hdu = fits.PrimaryHDU(data, header=header)
                         move_bscale_bzero(hdu.header)
-                        p.set_pyfits(fits.HDUList(hdu))
+                        fits.HDUList(hdu).writeto(data_bytes)
 
-                    for annotation in annotations:
-                        if isinstance(annotation, tuple):
-                            p.set(annotation[0], annotation[1])
-                        else:
-                            p.set(annotation)
+                    with open(os.path.join(ssh_root_path, config["key"]), encoding='utf-8') as keyfile:
+                        key = RSAKey.from_private_key(keyfile)
+
+                    remote_path = os.path.join(config['remote_path'], f'preview-{port}')
+                    print(f'copying {remote_path}')
+                    ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
+                    with SCPClient(ssh.get_transport()) as scp:
+                        scp.putfo(data_bytes, remote_path=remote_path)
+
+                    print('running', f'{config["remote_command"]} {port} "{remote_path}"')
+                    _, stdout, stderr = ssh.exec_command(f'{config["remote_command"]} {port} "{remote_path}"')
+                    print(stdout)
+                    print(stderr)
+                    ret = stdout.channel.recv_exit_status()
+                    print(f'removing {remote_path}')
+                    ssh.exec_command(f'rm "{remote_path}"')
+                    if ret != 0:
+                        raise Exception(f'display command returned code {ret}')
+
                 except Exception as e:
-                    socket_path = '/tmp/pipelined-' + str(port)
-                    if os.path.exists(socket_path):
-                        subprocess.check_call([
-                            'ssh',
-                            '-S', socket_path,
-                            '-O', 'exit',
-                            'localhost'
-                        ])
-
-                    ds9_preview_ports[i] = 0
+                    preview_ds9_ports[i] = 0
+                    preview_client_indexes[i] = len(preview_client_config)
                     print(f'unregistering preview {port}: {e}', flush=True)
 
 
-def process_frames(processing_queue, camera_config,
-                   preview_timestamp, ds9_preview_ports, ds9_preview_xpa_lock,
+def process_frames(processing_queue, camera_config, ssh_root_path,
+                   preview_timestamp, preview_client_config, preview_client_indexes, preview_ds9_ports, preview_lock,
                    guide_timestamp, guide_min_interval,
                    dashboard_timestamp, log_name,
                    environment_cards, environment_daemon_name, environment_query_timeout,
                    telescope_cards, telescope_query_timeout,
                    ops_daemon_name):
     """
+
     Helper process to add frame metadata and calculate image details for the operations daemon.
     This uses a process (rather than a thread) to avoid the GIL bottlenecking throughput,
     and multiple worker processes allow frames to be processed in parallel.
@@ -691,7 +642,8 @@ def process_frames(processing_queue, camera_config,
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
     threading.Thread(target=process_previews, daemon=True,
-                     args=(preview_queue, ds9_preview_ports, ds9_preview_xpa_lock)
+                     args=(preview_queue, ssh_root_path, preview_client_config, preview_client_indexes,
+                           preview_ds9_ports, preview_lock)
                      ).start()
 
     # Apply bias/dark corrections if required
@@ -768,7 +720,7 @@ def process_frames(processing_queue, camera_config,
                         guide_profiles_stale = True
 
             preview_stale = False
-            if any(ds9_preview_ports):
+            if any(preview_ds9_ports):
                 with preview_timestamp.get_lock():
                     next_preview_time = Time(preview_timestamp.value.decode('ascii')) + \
                         camera_config['preview_min_interval'] * u.s
@@ -870,23 +822,14 @@ def process_frames(processing_queue, camera_config,
                 add_hfd_header(header, objects)
                 steps.append('hfd')
 
-            # Update previews before the relatively-slow WCS step
-            if preview_stale:
-                annotations = generate_header_annotations(header, info, camera_config)
-                preview_queue.put((data_raw, header, annotations))
-
             if info['wcs_enabled'] or info['rotation_enabled']:
-                wcs = add_wcs_header(header, info, objects, binning, camera_config.get('wcs', None), camera_config)
-                if preview_stale:
-                    preview_queue.put((None, header, wcs))
+                add_wcs_header(header, info, objects, binning, camera_config.get('wcs', None))
                 steps.append('wcs')
                 if info['rotation_enabled']:
                     steps.append('rotation')
 
             if info['hfd_grid_enabled']:
-                grid = generate_hfd_grid_annotations(header, objects, camera_config)
-                if preview_stale:
-                    preview_queue.put((None, header, grid))
+                add_hfd_grid_header(header, objects, camera_config)
                 steps.append('hfd_grid')
 
             ops_cards = None
@@ -914,8 +857,11 @@ def process_frames(processing_queue, camera_config,
             process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
             print('processed ' + loadpath + ' in ' + str(process_time) + 's (' + ', '.join(steps) + ')', flush=True)
 
+            if preview_stale:
+                preview_queue.put((data_raw, header))
+
             if dashboard_stale:
-                update_dashboard(header, data_cropped, camera_config['dashboard'], steps, process_time)
+                update_dashboard(header, data_cropped, ssh_root_path, camera_config['dashboard'], steps, process_time)
 
         except Exception:
             print('Unexpected exception while processing ' + loadpath + ': ')
@@ -971,14 +917,16 @@ class PipelineWorkerDaemon:
         self._dashboard_timestamp = multiprocessing.Array('c', start_timestamp)
 
         # Use 0 to indicate an unregistered preview slot
-        self._ds9_preview_ports = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
-        self._ds9_preview_registration_lock = threading.Lock()
-        self._ds9_preview_xpa_lock = multiprocessing.Lock()
+        self._preview_ds9_ports = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
+        self._preview_client_indexes = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
+        self._preview_registration_lock = threading.Lock()
+        self._preview_lock = multiprocessing.Lock()
+        self._preview_client_ips = [getattr(IP, client['remote_machine']) for client in config.preview_client_config]
 
         for _ in range(self._camera_config['worker_processes']):
             multiprocessing.Process(target=process_frames, daemon=True, args=(
-                self._processing_queue, self._camera_config,
-                self._preview_timestamp, self._ds9_preview_ports, self._ds9_preview_xpa_lock,
+                self._processing_queue, self._camera_config, config.ssh_root_path, self._preview_timestamp,
+                config.preview_client_config, self._preview_client_indexes, self._preview_ds9_ports, self._preview_lock,
                 self._guide_timestamp, config.guiding_min_interval,
                 self._dashboard_timestamp, config.log_name,
                 config.environment_cards, config.environment_daemon_name, config.environment_query_timeout,
@@ -1021,52 +969,36 @@ class PipelineWorkerDaemon:
         self._processing_queue.put(info)
 
     @Pyro4.expose
-    def register_preview(self, user, host, port):
+    def register_preview(self, host, ds9_port):
         """Register a ds9 window for previews"""
         if not pyro_client_matches([self._config.daemon.host]):
             return CommandStatus.InvalidControlIP
 
-        with self._ds9_preview_registration_lock:
-            total = len(self._ds9_preview_ports)
+        try:
+            client_index = self._preview_client_ips.index(host)
+        except ValueError:
+            return CommandStatus.InvalidControlIP
+
+        with self._preview_registration_lock:
+            total = len(self._preview_ds9_ports)
             for i in range(total + 1):
                 if i == total:
                     return CommandStatus.TooManyPreviews
 
-                if self._ds9_preview_ports[i] == 0:
+                if self._preview_ds9_ports[i] == 0:
                     break
 
-            if host != self._camera_daemon.host:
+            client_ip = Pyro4.current_context.client.sock.getpeername()[0]
+            if client_ip != self._camera_daemon.host:
                 try:
-                    # pyds9 will fail unless the local and remote ports are the same, so we need
-                    # the same port to be free on both client and server.
-                    # This check may race against another process stealing the port, but this
-                    # should be rare enough that the user can just run the preview command again.
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        if s.connect_ex(('localhost', port)) == 0:
-                            return CommandStatus.TunnelPortInUse
-
-                    # Create a ssh tunnel using multiplexing to simplify closing it later
-                    # Inspired by https://stackoverflow.com/questions/4364355/how-to-open-an-ssh-tunnel-using-python
-                    # This requires key-based ssh access has been configured from the server to the calling client!
-                    socket_path = '/tmp/pipelined-' + str(port)
-                    subprocess.check_call([
-                        'ssh', '-MfN',
-                        '-S', socket_path,
-                        '-L', f'{port}:127.0.0.1:{port}',
-                        '-o', 'ExitOnForwardFailure=yes',
-                        f'{user}@{host}'
-                    ])
-
-                    subprocess.check_call([
-                        'ssh',
-                        '-S', socket_path,
-                        '-O', 'check',
-                        'localhost'
-                    ])
+                    # Check whether we are able to connect back to the client, otherwise fail early
+                    # This requires that key-based ssh access has been configured from the server to the calling client!
+                    print('TODO: Check ssh connectivity')
                 except Exception:
                     return CommandStatus.TunnelCreationFailed
 
-            self._ds9_preview_ports[i] = port
+            self._preview_client_indexes[i] = client_index
+            self._preview_ds9_ports[i] = ds9_port
         return CommandStatus.Succeeded
 
 

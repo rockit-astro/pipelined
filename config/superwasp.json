@@ -8,6 +8,30 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "superwasp_operations",
   "guiding_min_interval": 5,
+  "ssh_root_path": "/home/ops/.ssh",
+  "preview_clients": [
+    {
+        "remote_machine": "SWASPTCS",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/bin/pipeline display",
+        "key": "id_rsa"
+    },
+    {
+        "remote_machine": "SWASPDAS1",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/bin/pipeline display",
+        "key": "id_rsa"
+    },
+    {
+        "remote_machine": "SWASPDAS2",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/bin/pipeline display",
+        "key": "id_rsa"
+      }
+  ],
   "cameras": {
     "CAM1": {
       "worker_daemon": "superwasp_pipeline_cam1",
@@ -40,10 +64,9 @@
         "search_radius": 10
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-1",
         "flip_vertical": true,
@@ -86,10 +109,9 @@
         "search_radius": 10
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-2",
         "flip_vertical": true,
@@ -132,10 +154,9 @@
         "search_radius": 10
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-3",
         "flip_vertical": true,
@@ -178,10 +199,9 @@
         "search_radius": 10
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-4",
         "flip_vertical": true,
