@@ -51,7 +51,7 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %package server
 Summary:  Data pipeline server
 Group:    Unspecified
-Requires: python3-rockit-pipeline python3-astropy python3-pyds9 python3-sep python3-pillow python3-paramiko python3-scp astrometry-net
+Requires: python3-rockit-pipeline python3-astropy python3-sep python3-pillow python3-paramiko python3-scp astrometry-net
 
 %description server
 

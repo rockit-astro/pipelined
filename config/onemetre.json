@@ -8,6 +8,23 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "onemetre_operations",
   "guiding_min_interval": 5,
+  "ssh_root_path": "/home/ops/.ssh",
+  "preview_clients": [
+    {
+        "remote_machine": "OneMetreDome",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    },
+    {
+        "remote_machine": "OneMetreTCS",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    }
+  ],
   "cameras": {
     "BLUE": {
       "worker_daemon": "onemetre_pipeline_blue",
@@ -39,10 +56,9 @@
         "search_radius": 1.75
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-BLUE",
         "flip_vertical": true,
@@ -84,10 +100,9 @@
         "search_radius": 1.75
       },
       "dashboard": {
-        "user": "ops",
         "key": "dashboard",
+        "remote_machine": "GOTOServer",
         "remote_user": "dashboarddata",
-        "remote_host": "GOTOServer",
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-RED",
         "flip_vertical": true,
