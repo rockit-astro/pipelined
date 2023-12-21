@@ -23,7 +23,7 @@ CONFIG_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': [
-        'daemon', 'log_name', 'control_machines', 'notify_frame_machines', 'cameras'
+        'daemon', 'log_name', 'control_machines', 'notify_frame_machines', 'ssh_root_path', 'cameras'
     ],
     'properties': {
         'daemon': {
@@ -66,6 +66,35 @@ CONFIG_SCHEMA = {
         'guiding_min_interval': {
             'type': 'number',
             'minimum': 0,
+        },
+        'ssh_root_path': {
+            'type': 'string',
+        },
+        'preview_clients': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'required': ['remote_machine', 'remote_user', 'remote_path', 'remote_command', 'key'],
+                'properties': {
+                    'remote_machine': {
+                        'type': 'string',
+                        'machine_name': True
+                    },
+                    'remote_user': {
+                        'type': 'string',
+                    },
+                    'remote_path': {
+                        'type': 'string',
+                    },
+                    'remote_command': {
+                        'type': 'string',
+                    },
+                    'key': {
+                        'type': 'string',
+                    }
+                }
+            }
         },
         'cameras': {
             'type': 'object',
@@ -303,7 +332,7 @@ CAMERA_CONFIG_SCHEMA = {
                 'remote_user': {
                     'type': 'string',
                 },
-                'remote_host': {
+                'remote_machine': {
                     'type': 'string',
                     'machine_name': True
                 },
@@ -340,7 +369,7 @@ CAMERA_CONFIG_SCHEMA = {
                 }
             },
             'anyOf': [
-                {'required': ['user', 'key', 'remote_user', 'remote_host', 'remote_path']},
+                {'required': ['key', 'remote_user', 'remote_machine', 'remote_path']},
                 {'required': ['user', 'group', 'local_path']}
             ]
         }
@@ -378,6 +407,8 @@ class Config:
         self.environment_query_timeout = 0
         self.telescope_cards = []
         self.telescope_query_timeout = 0
+        self.ssh_root_path = config_json['ssh_root_path']
+        self.preview_client_config = config_json.get('preview_clients', [])
         self.cameras = config_json['cameras']
 
         if 'ops_daemon' in config_json:

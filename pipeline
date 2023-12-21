@@ -271,7 +271,7 @@ def register_preview(config, args):
                 break
 
         ds9 = pyds9.DS9(name, wait=10)
-        port = int(ds9.access().split(':')[-1])
+        ds9_port = int(ds9.access().split(':')[-1])
 
         ds9.set('view filename no')
         ds9.set('view physical no')
@@ -290,10 +290,82 @@ def register_preview(config, args):
         return -1
 
     with config.daemon.connect() as pipeline:
-        # Note: If the server is running on a different machine a ssh tunnel will be created
-        # back to this client machine. This requires that key-based ssh has been configured
-        # from the server machine to this client machine.
-        return pipeline.register_preview(camera_id, os.getlogin(), port)
+        # Note: If the server is running on a different machine scp/ssh will be used to update the preview
+        # This requires that key-based ssh has been configured from the server machine to this client machine.
+        return pipeline.register_preview(camera_id, ds9_port)
+
+
+def display_preview(config, args):
+    """Internal function to update the image displayed in a given ds9 preview window"""
+
+    # This import may stall if there are issues with the network.
+    # Import this only when we need it to avoid delaying the other commands
+    import pyds9
+    from astropy.io import fits
+
+    try:
+        ds9 = pyds9.DS9('7f000001:' + args[0], start=False, wait=1)
+        label = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
+        header = fits.getheader(args[1])
+        camera_config = config.cameras[header['CAMID']]
+        margin = camera_config['preview_ds9_annotation_margin']
+
+        width = header['NAXIS1']
+        height = header['NAXIS2']
+        timestamp = header['DATE-OBS']
+        time_src = header.get('TIME-SRC', None)
+        if time_src:
+            timestamp += f' ({time_src})'
+
+        prefix = []
+        if camera_config['preview_display_camera_id']:
+            prefix.append(header['CAMID'])
+        if camera_config['preview_display_filter']:
+            prefix.append(header.get('FILTER', 'UNKNOWN'))
+        exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
+
+        cam_transfer = header.get('CAM-TFER', None)
+        if cam_transfer:
+            exptime += f' ({cam_transfer})'
+
+        saved = 'SAVED' if 'FILENAME' in header else 'NOT SAVED'
+        annotations = [
+            ('regions', label.format(width / 4, height + margin, timestamp)),
+            ('regions', label.format(3 * width / 4, height + margin, exptime)),
+            ('regions', label.format(width / 2, -margin, saved))
+        ]
+
+        if 'WCSSOLVE' in header:
+            annotations.append(('regions', label.format(width / 4, -margin,
+                                                        'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED')))
+
+        if 'MEDHFD' in header:
+            annotations.append(('regions', label.format(4 * width / 5, -margin,
+                                                        f'HFD: {header["MEDHFD"]:.2f} arcsec')))
+
+        if 'HFD_0000' in header:
+            x_step = header['NAXIS1'] / config['hfd_grid_tiles_x']
+            y_step = header['NAXIS2'] / config['hfd_grid_tiles_y']
+
+            annotations = []
+            for j in range(config['hfd_grid_tiles_y']):
+                for i in range(config['hfd_grid_tiles_x']):
+                    x = (i + 0.5) * x_step
+                    y = (j + 0.5) * y_step
+                    median = header[f'HFD_{j:02d}{i:02d}']
+                    annotations.append(('regions', f'box({x:.6f},{y:.6f},{x_step},{y_step}) # color=yellow'))
+                    annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
+
+        ds9.set(f'file "{args[1]}"')
+        for annotation in annotations:
+            if isinstance(annotation, tuple):
+                ds9.set(annotation[0], annotation[1])
+            else:
+                ds9.set(annotation)
+
+        return CommandStatus.Succeeded
+    except:
+        return CommandStatus.Failed
 
 
 def reset(config, _):
@@ -331,6 +403,7 @@ if __name__ == '__main__':
     commands = {
         'status': print_status,
         'preview': register_preview,
+        'display': display_preview,
         'reset': reset,
         'archive': set_archive,
         'subdir': set_archive_subdirectory,

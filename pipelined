@@ -162,14 +162,14 @@ class PipelineDaemon:
             return CommandStatus.Succeeded
 
     @Pyro4.expose
-    def register_preview(self, camera_id, user, port):
+    def register_preview(self, camera_id, ds9_port):
         """Register a ds9 window for previews"""
         if not pyro_client_matches(self._config.control_ips):
             return CommandStatus.InvalidControlIP
 
         host = Pyro4.current_context.client.sock.getpeername()[0]
         with self._worker_daemons[camera_id].connect() as worker:
-            return worker.register_preview(user, host, port)
+            return worker.register_preview(host, ds9_port)
 
     @Pyro4.expose
     def set_frame_object(self, object_name):
