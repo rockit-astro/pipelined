@@ -25,6 +25,7 @@
 
 import argparse
 import array
+import base64
 import datetime
 import grp
 import io
@@ -133,7 +134,7 @@ def create_float_card(key, value, comment, places):
 def header_to_dict(header):
     ret = {}
     for card in header.cards:
-        if card.is_blank or not card.keyword or card.keyword == 'COMMENT':
+        if card.is_blank or not card.keyword or card.keyword in ['COMMENT', 'HISTORY']:
             continue
 
         ret[card.keyword] = card.value
@@ -271,61 +272,86 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
         return
 
     try:
-        table_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.xyls'
-        try:
-            os.remove(table_path)
-        except OSError:
-            pass
-
-        objects.write(table_path, format='fits')
-
-        wcs_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.wcs'
-        try:
-            os.remove(wcs_path)
-        except OSError:
-            pass
-
-        wcs_args = [
-            '/usr/bin/solve-field',
-            '--overwrite', '--no-plots',
-            '--axy', 'none', '--rdls', 'none', '--match', 'none',
-            '--corr', 'none', '--solved', 'none',
-            '--scale-units', 'arcsecperpix', '--scale-high', str(binning * wcs_config['scale_high']),
-            '--scale-low', str(binning * wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
-
+        wcs_objects = objects[:50]['X', 'Y', 'FLUX']
         ra = wcs_config.get('tel_ra_card', None)
         dec = wcs_config.get('tel_dec_card', None)
         radius = wcs_config.get('search_radius', None)
-        if ra and ra in header and dec and dec in header and radius:
-            wcs_args.extend([
-                '--ra', header[ra],
-                '--dec', header[dec],
-                '--radius', str(radius)
-            ])
 
-        wcs_args.append(table_path)
+        if 'astrometry_daemon' in wcs_config:
+            astrometry_daemon = getattr(daemons, wcs_config['astrometry_daemon'])
+            table_bytes = io.BytesIO()
+            wcs_objects.write(table_bytes, format='fits')
+            table_bytes.seek(0)
+            args = {
+                'width': width,
+                'height': height,
+                'scale_high': binning * wcs_config['scale_high'],
+                'scale_low': binning * wcs_config['scale_low'],
+                'objects': base64.b64encode(table_bytes.getvalue()).decode('ascii'),
+                'timeout': wcs_config['timeout'],
+                'camera_id': info['camera_id'],
+                'exposure_count': header['EXPCNT']
+            }
 
-        subprocess.check_call(wcs_args, timeout=wcs_config['timeout'],
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL)
+            if ra and ra in header and dec and dec in header and radius:
+                args.update([
+                    'ra', header[ra],
+                    'dec', header[dec],
+                    'radius', radius
+                ])
 
-        wcs_data = ''
+            timeout = astrometry_daemon.default_timeout + wcs_config['timeout']
+            with astrometry_daemon.connect(timeout=timeout) as astrometry:
+                solution = astrometry.solve(args)
+                if not solution:
+                    raise Exception('astrometry failed')
+
+        else:
+            table_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.xyls'
+            try:
+                os.remove(table_path)
+            except OSError:
+                pass
+
+            wcs_objects.write(table_path, format='fits')
+
+            wcs_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.wcs'
+            try:
+                os.remove(wcs_path)
+            except OSError:
+                pass
+
+            wcs_args = [
+                '/usr/bin/solve-field',
+                '--overwrite', '--no-plots',
+                '--axy', 'none', '--rdls', 'none', '--match', 'none',
+                '--corr', 'none', '--solved', 'none',
+                '--scale-units', 'arcsecperpix', '--scale-high', str(binning * wcs_config['scale_high']),
+                '--scale-low', str(binning * wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
+
+            if ra and ra in header and dec and dec in header and radius:
+                wcs_args.extend([
+                    '--ra', header[ra],
+                    '--dec', header[dec],
+                    '--radius', str(radius)
+                ])
+
+            wcs_args.append(table_path)
+
+            subprocess.check_call(wcs_args, timeout=wcs_config['timeout'],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
+
+            solution = header_to_dict(fits.Header.fromfile(wcs_path))
+
+        header.append(fits.Card('WCSSOLVE', True,
+                                'attempted wcs solution was successful?'), end=True)
+
         wcs_ignore_cards = ['SIMPLE', 'BITPIX', 'NAXIS', 'EXTEND', 'DATE', 'IMAGEW', 'IMAGEH']
         comment = 'astrometry.net wcs solution'
-        with open(wcs_path, encoding='ascii') as wcs_file:
-            h = wcs_file.read()
-            header.append(fits.Card('WCSSOLVE', True,
-                                    'attempted wcs solution was successful?'), end=True)
-            # ds9 will only accept newline-delimited keys,
-            # so we need to reformat the 80-character cards
-            for line in [h[i:i+80] for i in range(0, len(h), 80)]:
-                key = line[0:8].strip()
-                if '=' in line and key not in wcs_ignore_cards:
-                    card = fits.Card.fromstring(line)
-                    value = line[9:].split('/')[0].strip()
-                    wcs_data += key + ' = ' + value + '\n'
-
-                    header.append(fits.Card(card.keyword, card.value, comment), end=True)
+        for key, value in solution.items():
+            if key not in wcs_ignore_cards:
+                header.append(fits.Card(key, value, comment), end=True)
 
         if info['rotation_enabled']:
             wcs = WCS(header)
@@ -336,7 +362,6 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
     except Exception:
         print('failed to update wcs with error: ')
         traceback.print_exc(file=sys.stdout)
-        sys.stdout.flush()
         header.append(wcs_failed_card, end=True)
 
 

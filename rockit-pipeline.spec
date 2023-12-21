@@ -18,8 +18,10 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 
 %{__install} %{_sourcedir}/pipelined %{buildroot}%{_bindir}
 %{__install} %{_sourcedir}/pipeline_workerd %{buildroot}%{_bindir}
+%{__install} %{_sourcedir}/pipeline_astrometryd %{buildroot}%{_bindir}
 %{__install} %{_sourcedir}/pipelined@.service %{buildroot}%{_unitdir}
 %{__install} %{_sourcedir}/pipeline_workerd@.service %{buildroot}%{_unitdir}
+%{__install} %{_sourcedir}/pipeline_astrometryd@.service %{buildroot}%{_unitdir}
 %{__install} %{_sourcedir}/pipeline %{buildroot}%{_bindir}
 %{__install} %{_sourcedir}/completion/pipeline %{buildroot}/etc/bash_completion.d/pipeline
 
@@ -59,9 +61,11 @@ Requires: python3-rockit-pipeline python3-astropy python3-sep python3-pillow pyt
 %defattr(0755,root,root,-)
 %{_bindir}/pipelined
 %{_bindir}/pipeline_workerd
+%{_bindir}/pipeline_astrometryd
 %defattr(0644,root,root,-)
 %{_unitdir}/pipelined@.service
 %{_unitdir}/pipeline_workerd@.service
+%{_unitdir}/pipeline_astrometryd@.service
 
 %package client
 Summary:  Data pipeline client
