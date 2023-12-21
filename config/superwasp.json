@@ -36,8 +36,8 @@
     "CAM1": {
       "worker_daemon": "superwasp_pipeline_cam1",
       "worker_processes": 2,
-      "input_data_path": "/data/incoming",
-      "output_data_path": "/data/raw",
+      "input_data_path": "R:/",
+      "output_data_path": "Z:/",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
@@ -56,6 +56,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
+        "astrometry_daemon": "superwasp_pipeline_astrometry_das1",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -81,8 +82,8 @@
     "CAM2": {
       "worker_daemon": "superwasp_pipeline_cam2",
       "worker_processes": 2,
-      "input_data_path": "/data/incoming",
-      "output_data_path": "/data/raw",
+      "input_data_path": "R:/",
+      "output_data_path": "Z:/",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
@@ -101,6 +102,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
+        "astrometry_daemon": "superwasp_pipeline_astrometry_das1",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -126,8 +128,8 @@
     "CAM3": {
       "worker_daemon": "superwasp_pipeline_cam3",
       "worker_processes": 2,
-      "input_data_path": "/data/incoming",
-      "output_data_path": "/data/raw",
+      "input_data_path": "R:/",
+      "output_data_path": "Z:/",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
@@ -146,6 +148,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
+        "astrometry_daemon": "superwasp_pipeline_astrometry_das2",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -171,8 +174,8 @@
     "CAM4": {
       "worker_daemon": "superwasp_pipeline_cam4",
       "worker_processes": 2,
-      "input_data_path": "/data/incoming",
-      "output_data_path": "/data/raw",
+      "input_data_path": "R:/",
+      "output_data_path": "Z:/",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
@@ -191,6 +194,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
+        "astrometry_daemon": "superwasp_pipeline_astrometry_das2",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,

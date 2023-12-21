@@ -27,12 +27,11 @@ import argparse
 import array
 import base64
 import datetime
-import grp
 import io
 import json
 import multiprocessing
 import os
-import pwd
+import platform
 import queue
 import re
 import shutil
@@ -56,6 +55,10 @@ import sep
 from rockit.common import daemons, log, IP
 from rockit.common.helpers import pyro_client_matches
 from rockit.pipeline import CommandStatus, Config
+
+if platform.system() != 'Windows':
+    import grp
+    import pwd
 
 
 def window_header_region(header, data, keyword):
@@ -527,7 +530,7 @@ def update_dashboard(header, data, ssh_root_path, config, process_steps, process
         json_bytes.write(json.dumps(metadata).encode())
         json_bytes.seek(0)
 
-        if 'local_path' in config:
+        if 'local_path' in config and platform.system() != 'Windows':
             uid = pwd.getpwnam(config['user']).pw_uid
             gid = grp.getgrnam(config['group']).gr_gid
 

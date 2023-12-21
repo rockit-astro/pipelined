@@ -29,8 +29,8 @@
     "CAM1": {
       "worker_daemon": "clasp_pipeline_cam1",
       "worker_processes": 8,
-      "input_data_path": "/data/incoming",
-      "output_data_path": "/data/clasp",
+      "input_data_path": "R:/",
+      "output_data_path": "Z:/",
       "output_filename_add_camera_id": true,
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
@@ -49,6 +49,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
+        "astrometry_daemon": "clasp_pipeline_astrometry_cam1",
         "scale_low": 0.95,
         "scale_high": 1.0,
         "timeout": 4.0,
