@@ -284,9 +284,13 @@ CAMERA_CONFIG_SCHEMA = {
             'additionalProperties': False,
             'required': [
                 'scale_high', 'scale_low', 'timeout'
-                # Note: tel_ra_card, tel_dec_card, search_radius are optional
+                # Note: astrometry_daemon, tel_ra_card, tel_dec_card, search_radius are optional
             ],
             'properties': {
+                'astrometry_daemon': {
+                    'type': 'string',
+                    'daemon_name': True
+                },
                 'scale_high': {
                     'type': 'number'
                 },
