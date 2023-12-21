@@ -550,7 +550,7 @@ def update_dashboard(header, data, ssh_root_path, config, process_steps, process
             os.chown(path, uid, gid)
 
         if 'remote_path' in config:
-            with open(os.path.join(ssh_root_path, config["key"]), encoding='utf-8') as keyfile:
+            with open(os.path.join(ssh_root_path, config['key']), encoding='utf-8') as keyfile:
                 key = RSAKey.from_private_key(keyfile)
 
             with SSHClient() as ssh:
@@ -623,7 +623,7 @@ def process_previews(preview_queue, ssh_root_path, preview_client_config, previe
 
                     with SSHClient() as ssh:
                         ssh.load_system_host_keys(os.path.join(ssh_root_path, 'known_hosts'))
-                        with open(os.path.join(ssh_root_path, config["key"]), encoding='utf-8') as keyfile:
+                        with open(os.path.join(ssh_root_path, config['key']), encoding='utf-8') as keyfile:
                             key = RSAKey.from_private_key(keyfile)
 
                         remote_path = os.path.join(config['remote_path'], f'preview-{port}')
@@ -644,7 +644,7 @@ def process_previews(preview_queue, ssh_root_path, preview_client_config, previe
                     print(f'unregistering preview {port}: {e}', flush=True)
 
 
-def process_frames(processing_queue, camera_config, ssh_root_path,
+def process_frames(processing_queue, camera_config,
                    preview_timestamp, preview_client_config, preview_client_indexes, preview_ds9_ports, preview_lock,
                    guide_timestamp, guide_min_interval,
                    dashboard_timestamp, log_name,
@@ -666,8 +666,8 @@ def process_frames(processing_queue, camera_config, ssh_root_path,
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
     threading.Thread(target=process_previews, daemon=True,
-                     args=(preview_queue, ssh_root_path, preview_client_config, preview_client_indexes,
-                           preview_ds9_ports, preview_lock)
+                     args=(preview_queue, camera_config['ssh_root_path'], preview_client_config,
+                           preview_client_indexes, preview_ds9_ports, preview_lock)
                      ).start()
 
     # Apply bias/dark corrections if required
@@ -885,7 +885,8 @@ def process_frames(processing_queue, camera_config, ssh_root_path,
                 preview_queue.put((data_raw, header))
 
             if dashboard_stale:
-                update_dashboard(header, data_cropped, ssh_root_path, camera_config['dashboard'], steps, process_time)
+                update_dashboard(header, data_cropped, camera_config['ssh_root_path'], camera_config['dashboard'],
+                                 steps, process_time)
 
         except Exception:
             print('Unexpected exception while processing ' + loadpath + ': ')
@@ -949,7 +950,7 @@ class PipelineWorkerDaemon:
 
         for _ in range(self._camera_config['worker_processes']):
             multiprocessing.Process(target=process_frames, daemon=True, args=(
-                self._processing_queue, self._camera_config, config.ssh_root_path, self._preview_timestamp,
+                self._processing_queue, self._camera_config, self._preview_timestamp,
                 config.preview_client_config, self._preview_client_indexes, self._preview_ds9_ports, self._preview_lock,
                 self._guide_timestamp, config.guiding_min_interval,
                 self._dashboard_timestamp, config.log_name,
@@ -1019,8 +1020,9 @@ class PipelineWorkerDaemon:
                     # This requires that key-based ssh access has been configured from the server to the calling client!
                     with SSHClient() as ssh:
                         config = self._config.preview_client_config[client_index]
-                        ssh.load_system_host_keys(os.path.join(self._config.ssh_root_path, 'known_hosts'))
-                        with open(os.path.join(self._config.ssh_root_path, config["key"]), encoding='utf-8') as keyfile:
+                        ssh.load_system_host_keys(os.path.join(self._camera_config['ssh_root_path'], 'known_hosts'))
+                        key_path = os.path.join(self._camera_config['ssh_root_path'], config['key'])
+                        with open(key_path, encoding='utf-8') as keyfile:
                             key = RSAKey.from_private_key(keyfile)
 
                         ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)

@@ -8,7 +8,6 @@
   "telescope_query_timeout": 1,
   "ops_daemon": "halfmetre_operations",
   "guiding_min_interval": 5,
-  "ssh_root_path": "/home/ops/.ssh",
   "preview_clients": [
     {
         "remote_machine": "HalfMetreTCS",
@@ -24,6 +23,7 @@
       "worker_processes": 8,
       "input_data_path": "/data/incoming",
       "output_data_path": "/data",
+      "ssh_root_path": "/home/ops/.ssh",
       "output_filename_add_camera_id": false,
       "output_filename_add_filter": true,
       "binning_card": "CAM-BIN",

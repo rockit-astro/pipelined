@@ -23,7 +23,7 @@ CONFIG_SCHEMA = {
     'type': 'object',
     'additionalProperties': False,
     'required': [
-        'daemon', 'log_name', 'control_machines', 'notify_frame_machines', 'ssh_root_path', 'cameras'
+        'daemon', 'log_name', 'control_machines', 'notify_frame_machines', 'cameras'
     ],
     'properties': {
         'daemon': {
@@ -66,9 +66,6 @@ CONFIG_SCHEMA = {
         'guiding_min_interval': {
             'type': 'number',
             'minimum': 0,
-        },
-        'ssh_root_path': {
-            'type': 'string',
         },
         'preview_clients': {
             'type': 'array',
@@ -197,7 +194,7 @@ CAMERA_CONFIG_SCHEMA = {
     'additionalProperties': False,
     'required': [
         'worker_daemon', 'worker_processes',
-        'input_data_path', 'output_data_path',
+        'input_data_path', 'output_data_path', 'ssh_root_path',
         'platescale', 'image_region_card', 'object_minpix',
         'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
         'preview_ds9_zoom', 'preview_ds9_annotation_margin', 'preview_display_camera_id', 'preview_display_filter'
@@ -217,6 +214,10 @@ CAMERA_CONFIG_SCHEMA = {
             'directory_path': True
         },
         'output_data_path': {
+            'type': 'string',
+            'directory_path': True
+        },
+        'ssh_root_path': {
             'type': 'string',
             'directory_path': True
         },
@@ -411,7 +412,6 @@ class Config:
         self.environment_query_timeout = 0
         self.telescope_cards = []
         self.telescope_query_timeout = 0
-        self.ssh_root_path = config_json['ssh_root_path']
         self.preview_client_config = config_json.get('preview_clients', [])
         self.cameras = config_json['cameras']
 
