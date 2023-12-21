@@ -30,8 +30,7 @@ class CommandStatus:
     ReferenceFrameError = 31
     DirectoryNotWritable = 50
     NewDirectoryFailed = 51
-    TunnelCreationFailed = 60
-    TunnelPortInUse = 61
+    SSHConnectionFailed = 60
     TooManyPreviews = 62
 
     _messages = {
@@ -42,8 +41,7 @@ class CommandStatus:
         11: 'error: unknown camera id',
         50: 'error: directory doesn\'t exist or isn\'t writable',
         51: 'error: failed to create night directory (already exists?)',
-        60: 'error: failed to create ssh tunnel for remote preview',
-        61: 'error: ssh tunnel port for remote preview already in use',
+        60: 'error: failed to create ssh connection for remote preview',
         62: 'error: too many previews have already been registered',
 
         -101: 'error: unable to communicate with pipeline daemon',

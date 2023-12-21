@@ -1027,7 +1027,7 @@ class PipelineWorkerDaemon:
 
                         ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
                 except Exception:
-                    return CommandStatus.TunnelCreationFailed
+                    return CommandStatus.SSHConnectionFailed
 
             self._preview_client_indexes[i] = client_index
             self._preview_ds9_ports[i] = ds9_port
