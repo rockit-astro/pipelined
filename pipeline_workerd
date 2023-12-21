@@ -558,12 +558,9 @@ def update_dashboard(header, data, ssh_root_path, config, process_steps, process
                 ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
 
                 with SCPClient(ssh.get_transport()) as scp:
-                    scp.putfo(thumb_bytes, remote_path=os.path.join(config['remote_path'],
-                                                                    config['prefix'] + '-thumb.jpg'))
-                    scp.putfo(clip_bytes, remote_path=os.path.join(config['remote_path'],
-                                                                   config['prefix'] + '-clip.jpg'))
-                    scp.putfo(json_bytes, remote_path=os.path.join(config['remote_path'],
-                                                                   config['prefix'] + '.json'))
+                    scp.putfo(thumb_bytes, remote_path=f'{config["remote_path"]}/{config["prefix"]}-thumb.jpg')
+                    scp.putfo(clip_bytes, remote_path=f'{config["remote_path"]}/{config["prefix"]}-clip.jpg')
+                    scp.putfo(json_bytes, remote_path=f'{config["remote_path"]}/{config["prefix"]}.json')
     except Exception:
         print('failed to generate dashboard preview with error:')
         traceback.print_exc(file=sys.stdout)
@@ -626,7 +623,7 @@ def process_previews(preview_queue, ssh_root_path, preview_client_config, previe
                         with open(os.path.join(ssh_root_path, config['key']), encoding='utf-8') as keyfile:
                             key = RSAKey.from_private_key(keyfile)
 
-                        remote_path = os.path.join(config['remote_path'], f'preview-{port}')
+                        remote_path = f'{config["remote_path"]}/preview-{port}'
                         ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
                         with SCPClient(ssh.get_transport()) as scp:
                             data_bytes.seek(0)
