@@ -464,6 +464,8 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bi
 
 def add_hfd_grid_header(header, objects, config):
     """Adds the hfd grid samples to the frame header"""
+    header.append(fits.Card('HFD_ROWS', config['hfd_grid_tiles_y'], 'number of rows in hfd grid'))
+    header.append(fits.Card('HFD_COLS', config['hfd_grid_tiles_x'], 'number of columns in hfd grid'))
     x_step = header['NAXIS1'] / config['hfd_grid_tiles_x']
     y_step = header['NAXIS2'] / config['hfd_grid_tiles_y']
     for j in range(config['hfd_grid_tiles_y']):
@@ -476,9 +478,13 @@ def add_hfd_grid_header(header, objects, config):
                 objects['Y'] < y_step * (j + 1)
             ])
             # pylint: enable=no-member
+
             median = np.median(objects['HFD_ARCSEC'][filt])
-            header.append(create_float_card(f'HFD_{j:02d}{i:02d}', median,
-                                            '[arcsec] hfd measurement', 2), end=True)
+            if np.isnan(median):
+                header.append(fits.Card('COMMENT', f' HFD_{j:02d}{i:02d} not available', ''), end=True)
+            else:
+                header.append(create_float_card(f'HFD_{j:02d}{i:02d}', median,
+                                                '[arcsec] hfd measurement', 2), end=True)
 
 
 def update_dashboard(header, data, ssh_root_path, config, process_steps, process_time):

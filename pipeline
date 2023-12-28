@@ -343,18 +343,19 @@ def display_preview(config, args):
             annotations.append(('regions', label.format(4 * width / 5, -margin,
                                                         f'HFD: {header["MEDHFD"]:.2f} arcsec')))
 
-        if 'HFD_0000' in header:
-            x_step = header['NAXIS1'] / config['hfd_grid_tiles_x']
-            y_step = header['NAXIS2'] / config['hfd_grid_tiles_y']
+        if 'HFD_ROWS' in header and 'HFD_COLS' in header:
+            x_step = header['NAXIS1'] / header['HFD_COLS']
+            y_step = header['NAXIS2'] / header['HFD_ROWS']
 
             annotations = []
-            for j in range(config['hfd_grid_tiles_y']):
-                for i in range(config['hfd_grid_tiles_x']):
+            for j in range(header['HFD_ROWS']):
+                for i in range(header['HFD_COLS']):
                     x = (i + 0.5) * x_step
                     y = (j + 0.5) * y_step
-                    median = header[f'HFD_{j:02d}{i:02d}']
                     annotations.append(('regions', f'box({x:.6f},{y:.6f},{x_step},{y_step}) # color=yellow'))
-                    annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
+                    median = header.get(f'HFD_{j:02d}{i:02d}', None)
+                    if median is not None:
+                        annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
 
         ds9.set(f'file "{args[1]}"')
         for annotation in annotations:
