@@ -21,6 +21,8 @@
 # pylint: disable=too-many-branches
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-statements
+# pylint: disable=too-many-lines
+# pylint: disable=broad-exception-raised
 
 
 import argparse
@@ -118,18 +120,17 @@ def create_formatted_card(key, value, comment, format_type):
 
         return fits.Card(key, value, comment)
     except Exception:
-        print('failed to create card ' + key + ' with error: ')
+        print(f'failed to create card {key} with error: ')
         traceback.print_exc(file=sys.stdout)
         sys.stdout.flush()
-        return fits.Card('COMMENT', ' ' + key + ' not available', '')
+        return fits.Card('COMMENT', f' {key} not available', '')
 
 
 def create_float_card(key, value, comment, places):
     """Create a fits.Card instance with a float value
        rounded to a specified number of significant figures
     """
-    fmt = '{:8s}= {:.0' + str(places) + 'f}'
-    card = fits.Card.fromstring(fmt.format(key, value))
+    card = fits.Card.fromstring(f'{key:8s}= {value:.0{places}f}')
     card.comment = comment
     return card
 
@@ -171,7 +172,7 @@ def add_telescope_header(header, info, log_name, telescope_cards, telescope_quer
             with card['daemon'].connect(telescope_query_timeout) as d:
                 data[key] = getattr(d, card['method'])() or {}
         except Exception as e:
-            log.error(log_name, 'Failed to query telescope metadata (' + str(e) + ')')
+            log.error(log_name, f'Failed to query telescope metadata ({e})')
             sys.stdout.flush()
             data[card['daemon']] = {}
 
@@ -193,7 +194,7 @@ def add_telescope_header(header, info, log_name, telescope_cards, telescope_quer
         if value is not None:
             header.append(create_formatted_card(card['key'], value, card['comment'], card['type']), end=True)
         else:
-            header.append(fits.Card('COMMENT', ' ' + card['key'] + ' not available', ''), end=True)
+            header.append(fits.Card('COMMENT', f' {card["key"]} not available', ''), end=True)
 
 
 def add_environment_header(header, info, log_name, environment_cards, environment_daemon, environment_query_timeout):
@@ -207,7 +208,7 @@ def add_environment_header(header, info, log_name, environment_cards, environmen
             data = environment.status()
     except Exception as e:
         data = {}
-        log.error(log_name, 'Failed to query environment metadata (' + str(e) + ')')
+        log.error(log_name, f'Failed to query environment metadata ({e})')
         sys.stdout.flush()
 
     for card in environment_cards:
@@ -219,7 +220,7 @@ def add_environment_header(header, info, log_name, environment_cards, environmen
             header.append(create_formatted_card(card['key'], sensor_data['latest'],
                                                 card['comment'], card['type']), end=True)
         else:
-            header.append(fits.Card('COMMENT', ' ' + card['key'] + ' not available', ''), end=True)
+            header.append(fits.Card('COMMENT', f' {card["key"]} not available', ''), end=True)
 
 
 def add_pipeline_header(header, info, filename):
@@ -285,7 +286,7 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
             table_bytes = io.BytesIO()
             wcs_objects.write(table_bytes, format='fits')
             table_bytes.seek(0)
-            args = {
+            wcs_args = {
                 'width': width,
                 'height': height,
                 'scale_high': binning * wcs_config['scale_high'],
@@ -297,7 +298,7 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
             }
 
             if ra and ra in header and dec and dec in header and radius:
-                args.update([
+                wcs_args.update([
                     'ra', header[ra],
                     'dec', header[dec],
                     'radius', radius
@@ -305,20 +306,19 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
 
             timeout = astrometry_daemon.default_timeout + wcs_config['timeout']
             with astrometry_daemon.connect(timeout=timeout) as astrometry:
-                solution = astrometry.solve(args)
+                solution = astrometry.solve(wcs_args)
                 if not solution:
                     raise Exception('astrometry failed')
 
         else:
-            table_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.xyls'
+            table_path = f'/var/tmp/{info["camera_id"]}-{header["EXPCNT"]}-scratch.xyls'
             try:
                 os.remove(table_path)
             except OSError:
                 pass
 
             wcs_objects.write(table_path, format='fits')
-
-            wcs_path = '/var/tmp/' + info['camera_id'] + '-' + str(header['EXPCNT']) + '-scratch.wcs'
+            wcs_path = f'/var/tmp/{info["camera_id"]}-{header["EXPCNT"]}-scratch.wcs'
             try:
                 os.remove(wcs_path)
             except OSError:
@@ -878,7 +878,7 @@ def process_frames(processing_queue, camera_config,
                 sys.stdout.flush()
 
             process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
-            print('processed ' + loadpath + ' in ' + str(process_time) + 's (' + ', '.join(steps) + ')', flush=True)
+            print(f'processed {loadpath} in {process_time}s ({", ".join(steps)})', flush=True)
 
             if preview_stale:
                 preview_queue.put((data_raw, header))
@@ -888,7 +888,7 @@ def process_frames(processing_queue, camera_config,
                                  steps, process_time)
 
         except Exception:
-            print('Unexpected exception while processing ' + loadpath + ': ')
+            print(f'Unexpected exception while processing {loadpath}: ')
             traceback.print_exc(file=sys.stdout)
             sys.stdout.flush()
         finally:
@@ -896,7 +896,7 @@ def process_frames(processing_queue, camera_config,
                 if os.path.exists(loadpath):
                     os.remove(loadpath)
             except Exception:
-                print('Failed to delete temporary frame: ' + loadpath, flush=True)
+                print(f'Failed to delete temporary frame: {loadpath}', flush=True)
 
 
 def write_fits_header(loadpath, header, header_block_capacity):
