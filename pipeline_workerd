@@ -720,19 +720,6 @@ def process_frames(processing_queue, camera_config,
             while header.cards[-1][0] == '' and header.cards[-1][1] == '':
                 header.pop()
 
-            output_filename = None
-            if info['output_archive']:
-                date = datetime.datetime.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
-                output_filename = info['output_prefix'] + '-'
-
-                if camera_config['output_filename_add_camera_id']:
-                    output_filename += info['camera_id'] + '-'
-
-                if camera_config['output_filename_add_filter']:
-                    output_filename += header.get('FILTER', 'UNKNOWN') + '-'
-
-                output_filename += date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
-
             # We can skip loading the frame data if we know for sure that
             # we aren't going to need it.
             data_bgsubtracted = data_cropped = data_raw = data_background = None
@@ -813,11 +800,7 @@ def process_frames(processing_queue, camera_config,
 
             guide_cards = None
             if guide_profiles_stale and ops_daemon is not None:
-                # Autoguiding header cards expect the FILENAME card to exist
-                guide_header = header.copy()
-                add_pipeline_header(guide_header, info, output_filename)
-
-                guide_cards = notify_guide_profiles(guide_header, data_bgsubtracted, log_name, ops_daemon)
+                guide_cards = notify_guide_profiles(header, data_bgsubtracted, log_name, ops_daemon)
                 steps.append('guiding')
 
             move_bscale_bzero(header)
@@ -827,6 +810,19 @@ def process_frames(processing_queue, camera_config,
             if environment_cards:
                 add_environment_header(header, info, log_name, environment_cards,
                                        environment_daemon, environment_query_timeout)
+
+            output_filename = None
+            if info['output_archive']:
+                date = datetime.datetime.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
+                output_filename = info['output_prefix'] + '-'
+
+                if camera_config['output_filename_add_camera_id']:
+                    output_filename += info['camera_id'] + '-'
+
+                if camera_config['output_filename_add_filter']:
+                    output_filename += header.get('FILTER', 'UNKNOWN') + '-'
+
+                output_filename += date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
 
             add_pipeline_header(header, info, output_filename)
 
