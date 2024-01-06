@@ -308,7 +308,7 @@ def display_preview(config, args):
         label = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
         header = fits.getheader(args[1])
         camera_config = config.cameras[header['CAMID']]
-        margin = camera_config['preview_ds9_annotation_margin']
+        margin = camera_config['preview_ds9_annotation_margin'] / header.get('CAM-BIN', 1)
 
         width = header['NAXIS1']
         height = header['NAXIS2']
