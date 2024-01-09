@@ -259,7 +259,7 @@ def add_operations_header(header, cards):
             header.append(fits.Card(keyword[0:8], value, comment), end=True)
 
 
-def add_wcs_header(header, info, objects, binning, wcs_config):
+def add_wcs_header(header, objects, binning, add_rotation, wcs_config):
     """Solves frame WCS and adds the appropriate header keys to the frame.
        Returns a list of xpa messages that can be given to update_previews"""
 
@@ -293,7 +293,7 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
                 'scale_low': binning * wcs_config['scale_low'],
                 'objects': base64.b64encode(table_bytes.getvalue()).decode('ascii'),
                 'timeout': wcs_config['timeout'],
-                'camera_id': info['camera_id'],
+                'camera_id': header['CAMID'],
                 'exposure_count': header['EXPCNT']
             }
 
@@ -348,7 +348,7 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
             if key not in wcs_ignore_cards:
                 header.append(fits.Card(key, value, comment), end=True)
 
-        if info['rotation_enabled']:
+        if add_rotation:
             wcs = WCS(header)
             coords = wcs.all_pix2world([width // 2, width // 2], [height // 2, height // 2 + 1], 0)
             north_angle = np.degrees(np.arctan2(np.diff(coords[1]), np.diff(coords[0]))).item()
@@ -838,7 +838,7 @@ def process_frames(processing_queue, camera_config,
                 steps.append('hfd')
 
             if info['wcs_enabled'] or info['rotation_enabled']:
-                add_wcs_header(header, info, objects, binning, camera_config.get('wcs', None))
+                add_wcs_header(header, objects, binning, info['rotation_enabled'], camera_config.get('wcs', None))
                 steps.append('wcs')
                 if info['rotation_enabled']:
                     steps.append('rotation')
