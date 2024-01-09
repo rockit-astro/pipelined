@@ -22,6 +22,7 @@ import argparse
 import base64
 import os
 import subprocess
+import tempfile
 import Pyro4
 from astropy.io import fits
 from rockit.common import daemons
@@ -40,43 +41,34 @@ def header_to_dict(header):
 class PipelineAstrometryDaemon:
     @Pyro4.expose
     def solve(self, args):
-        table_path = '/var/tmp/' + args['camera_id'] + '-' + str(args['exposure_count']) + '-scratch.xyls'
-        try:
-            os.remove(table_path)
-        except OSError:
-            pass
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            wcs_path = os.path.join(tmp_dir, 'scratch.wcs')
+            table_path = os.path.join(tmp_dir, 'scratch.xyls')
+            with open(table_path, 'wb') as f:
+                f.write(base64.b64decode(args['objects']))
 
-        with open(table_path, 'wb') as f:
-            f.write(base64.b64decode(args['objects']))
+            wcs_args = [
+                '/usr/bin/solve-field',
+                '--overwrite', '--no-plots',
+                '--axy', 'none', '--rdls', 'none', '--match', 'none',
+                '--corr', 'none', '--solved', 'none',
+                '--scale-units', 'arcsecperpix', '--scale-high', str(args['scale_high']),
+                '--scale-low', str(args['scale_low']), '--width', str(args['width']), '--height', str(args['height'])]
 
-        wcs_path = '/var/tmp/' + args['camera_id'] + '-' + str(args['exposure_count']) + '-scratch.wcs'
-        try:
-            os.remove(wcs_path)
-        except OSError:
-            pass
+            if 'ra' in args and 'dec' in args and 'radius' in args:
+                wcs_args.extend([
+                    '--ra', str(args['ra']),
+                    '--dec', str(args['dec']),
+                    '--radius', str(args['radius'])
+                ])
 
-        wcs_args = [
-            '/usr/bin/solve-field',
-            '--overwrite', '--no-plots',
-            '--axy', 'none', '--rdls', 'none', '--match', 'none',
-            '--corr', 'none', '--solved', 'none',
-            '--scale-units', 'arcsecperpix', '--scale-high', str(args['scale_high']),
-            '--scale-low', str(args['scale_low']), '--width', str(args['width']), '--height', str(args['height'])]
+            wcs_args.append(table_path)
 
-        if 'ra' in args and 'dec' in args and 'radius' in args:
-            wcs_args.extend([
-                '--ra', str(args['ra']),
-                '--dec', str(args['dec']),
-                '--radius', str(args['radius'])
-            ])
+            subprocess.check_call(wcs_args, timeout=args['timeout'],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL)
 
-        wcs_args.append(table_path)
-
-        subprocess.check_call(wcs_args, timeout=args['timeout'],
-                              stdout=subprocess.DEVNULL,
-                              stderr=subprocess.DEVNULL)
-
-        return header_to_dict(fits.Header.fromfile(wcs_path))
+            return header_to_dict(fits.Header.fromfile(wcs_path))
 
 
 if __name__ == '__main__':

@@ -311,41 +311,33 @@ def add_wcs_header(header, info, objects, binning, wcs_config):
                     raise Exception('astrometry failed')
 
         else:
-            table_path = f'/var/tmp/{info["camera_id"]}-{header["EXPCNT"]}-scratch.xyls'
-            try:
-                os.remove(table_path)
-            except OSError:
-                pass
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                wcs_path = os.path.join(tmp_dir, 'scratch.wcs')
+                table_path = os.path.join(tmp_dir, 'scratch.xyls')
+                wcs_objects.write(table_path, format='fits')
 
-            wcs_objects.write(table_path, format='fits')
-            wcs_path = f'/var/tmp/{info["camera_id"]}-{header["EXPCNT"]}-scratch.wcs'
-            try:
-                os.remove(wcs_path)
-            except OSError:
-                pass
+                wcs_args = [
+                    '/usr/bin/solve-field',
+                    '--overwrite', '--no-plots',
+                    '--axy', 'none', '--rdls', 'none', '--match', 'none',
+                    '--corr', 'none', '--solved', 'none',
+                    '--scale-units', 'arcsecperpix', '--scale-high', str(binning * wcs_config['scale_high']),
+                    '--scale-low', str(binning * wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
 
-            wcs_args = [
-                '/usr/bin/solve-field',
-                '--overwrite', '--no-plots',
-                '--axy', 'none', '--rdls', 'none', '--match', 'none',
-                '--corr', 'none', '--solved', 'none',
-                '--scale-units', 'arcsecperpix', '--scale-high', str(binning * wcs_config['scale_high']),
-                '--scale-low', str(binning * wcs_config['scale_low']), '--width', str(width), '--height', str(height)]
+                if ra and ra in header and dec and dec in header and radius:
+                    wcs_args.extend([
+                        '--ra', header[ra],
+                        '--dec', header[dec],
+                        '--radius', str(radius)
+                    ])
 
-            if ra and ra in header and dec and dec in header and radius:
-                wcs_args.extend([
-                    '--ra', header[ra],
-                    '--dec', header[dec],
-                    '--radius', str(radius)
-                ])
+                wcs_args.append(table_path)
 
-            wcs_args.append(table_path)
+                subprocess.check_call(wcs_args, timeout=wcs_config['timeout'],
+                                      stdout=subprocess.DEVNULL,
+                                      stderr=subprocess.DEVNULL)
 
-            subprocess.check_call(wcs_args, timeout=wcs_config['timeout'],
-                                  stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.DEVNULL)
-
-            solution = header_to_dict(fits.Header.fromfile(wcs_path))
+                solution = header_to_dict(fits.Header.fromfile(wcs_path))
 
         header.append(fits.Card('WCSSOLVE', True,
                                 'attempted wcs solution was successful?'), end=True)
