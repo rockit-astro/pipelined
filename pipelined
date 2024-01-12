@@ -157,8 +157,11 @@ class PipelineDaemon:
                 return CommandStatus.UnknownCameraID
 
             self._output_save_to_disk[camera_id] = enabled
-            log.info(self._config.log_name, 'Frame archiving for ' + camera_id +
-                     (' enabled' if enabled else ' disabled'))
+            if len(self._config.cameras) == 1:
+                log.info(self._config.log_name, 'Frame archiving ' + ('enabled' if enabled else 'disabled'))
+            else:
+                log.info(self._config.log_name,
+                         'Frame archiving for ' + camera_id + (' enabled' if enabled else ' disabled'))
             return CommandStatus.Succeeded
 
     @Pyro4.expose
@@ -329,8 +332,11 @@ class PipelineDaemon:
             archive = params.get('archive', [])
             for camera_id in self._config.cameras:
                 self._output_save_to_disk[camera_id] = camera_id in archive
-                if not quiet:
-                    log.info(self._config.log_name, f'Frame archiving for {camera_id} enabled')
+                if not quiet and camera_id in archive:
+                    if len(self._config.cameras) == 1:
+                        log.info(self._config.log_name, f'Frame archiving enabled')
+                    else:
+                        log.info(self._config.log_name, f'Frame archiving for {camera_id} enabled')
 
             self._wcs_enabled = params.get('wcs', False)
             if not quiet:
