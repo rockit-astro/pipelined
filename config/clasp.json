@@ -27,7 +27,7 @@
   "cameras": {
     "CAM1": {
       "worker_daemon": "clasp_pipeline_cam1",
-      "worker_processes": 8,
+      "worker_processes": 12,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
       "ssh_root_path": "C:/Users/ops/.ssh",
