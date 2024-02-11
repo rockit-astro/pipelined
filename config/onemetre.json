@@ -162,21 +162,21 @@
     {
       "key": "DOMETEMP",
       "comment": "[deg c] temperature inside dome",
-      "sensor": "w1m_roomalert",
+      "sensor": "w1m_domealert",
       "parameter": "internal_temp",
       "type": "float1dp"
     },
     {
       "key": "DOMEHUMD",
       "comment": "[%] humidity inside dome",
-      "sensor": "w1m_roomalert",
+      "sensor": "w1m_domealert",
       "parameter": "internal_humidity",
       "type": "float1dp"
     },
     {
       "key": "TRUSTEMP",
       "comment": "[deg c] temperature at top of telescope truss",
-      "sensor": "w1m_roomalert",
+      "sensor": "w1m_domealert",
       "parameter": "truss_temp",
       "type": "float1dp"
     },
