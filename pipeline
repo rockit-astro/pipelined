@@ -339,6 +339,10 @@ def display_preview(config, args):
             annotations.append(('regions', label.format(width / 4, -margin,
                                                         'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED')))
 
+        if 'FIELDROT' in header:
+            annotations.append(('regions', label.format(width / 2, -2 * margin,
+                                                        f'North is {header["FIELDROT"]:.1f} deg CCW of +X')))
+
         if 'MEDHFD' in header:
             annotations.append(('regions', label.format(4 * width / 5, -margin,
                                                         f'HFD: {header["MEDHFD"]:.2f} arcsec')))
