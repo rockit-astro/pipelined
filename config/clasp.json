@@ -82,6 +82,7 @@
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
       "image_region_card": "IMAG-RGN",
+      "coadditions_card": "COADDCNT",
       "platescale": 2.62,
       "object_minpix": 16,
       "preview_min_interval": 5,

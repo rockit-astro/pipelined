@@ -437,9 +437,13 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bi
             header.append(create_float_card('MEDBIAS', np.median(bias),
                                             '[adu] median overscan bias counts', 2), end=True)
         elif master_bias_stats:
-            header.append(create_float_card('MEANBIAS', master_bias_stats['mean'],
+            coadds = 1
+            if 'coadditions_card' in config and config['coadditions_card'] in header:
+                coadds = header[config['coadditions_card']]
+
+            header.append(create_float_card('MEANBIAS', coadds * master_bias_stats['mean'],
                                             '[adu] nominal mean bias counts', 2), end=True)
-            header.append(create_float_card('MEDBIAS', master_bias_stats['median'],
+            header.append(create_float_card('MEDBIAS', coadds * master_bias_stats['median'],
                                             '[adu] nominal median bias counts', 2), end=True)
 
     except Exception:
@@ -666,7 +670,6 @@ def process_frames(processing_queue, camera_config,
         master_bias_stats = {
             'median': np.median(master_bias),
             'mean': np.median(master_bias),
-            'std': np.std(master_bias)
         }
 
         # Normalize to just the pixel non-uniformity
@@ -753,7 +756,11 @@ def process_frames(processing_queue, camera_config,
 
                     # Correct for bias pattern
                     if master_bias_pixel_nonuniformity is not None:
-                        data_raw_float -= master_bias_pixel_nonuniformity
+                        coadds = 1
+                        if 'coadditions_card' in camera_config and camera_config['coadditions_card'] in header:
+                            coadds = header[camera_config['coadditions_card']]
+
+                        data_raw_float -= coadds * master_bias_pixel_nonuniformity
                         steps.append('bias')
 
                     # Correct for hot pixels

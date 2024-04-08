@@ -198,7 +198,7 @@ CAMERA_CONFIG_SCHEMA = {
         'platescale', 'image_region_card', 'object_minpix',
         'preview_min_interval', 'preview_max_instances', 'preview_ds9_width', 'preview_ds9_height',
         'preview_ds9_zoom', 'preview_ds9_annotation_margin', 'preview_display_camera_id', 'preview_display_filter'
-        # Note: overscan_region_card, binning_card are optional
+        # Note: overscan_region_card, binning_card, coadditions_card are optional
     ],
     'properties': {
         'worker_daemon': {
@@ -234,6 +234,9 @@ CAMERA_CONFIG_SCHEMA = {
             'type': 'string'
         },
         'overscan_region_card': {
+            'type': 'string'
+        },
+        'coadditions_card': {
             'type': 'string'
         },
         'platescale': {
