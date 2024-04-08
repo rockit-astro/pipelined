@@ -429,8 +429,6 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bi
                                         '[adu] mean frame counts', 2), end=True)
         header.append(create_float_card('MEDCNTS', np.median(data_cropped),
                                         '[adu] median frame counts', 2), end=True)
-        header.append(create_float_card('STDCNTS', np.std(data_cropped),
-                                        '[adu] frame counts standard deviation', 2), end=True)
 
         if 'overscan_region_card' in config and config['overscan_region_card'] in header:
             bias, *_ = window_header_region(header, data_raw, config['overscan_region_card'])
@@ -438,15 +436,11 @@ def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bi
                                             '[adu] mean overscan bias counts', 2), end=True)
             header.append(create_float_card('MEDBIAS', np.median(bias),
                                             '[adu] median overscan bias counts', 2), end=True)
-            header.append(create_float_card('STDBIAS', np.std(bias),
-                                            '[adu] overscan bias standard deviation', 2), end=True)
         elif master_bias_stats:
             header.append(create_float_card('MEANBIAS', master_bias_stats['mean'],
                                             '[adu] nominal mean bias counts', 2), end=True)
             header.append(create_float_card('MEDBIAS', master_bias_stats['median'],
                                             '[adu] nominal median bias counts', 2), end=True)
-            header.append(create_float_card('STDBIAS', master_bias_stats['std'],
-                                            '[adu] nominal bias standard deviation', 2), end=True)
 
     except Exception:
         print('failed to calculate intensity stats with error: ')
