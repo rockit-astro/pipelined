@@ -378,6 +378,38 @@
       "daemon": "clasp_telescope",
       "method": "report_status",
       "parameter": "sun_separation"
+    },
+    {
+      "key": "CHILSTAT",
+      "comment": "water chiller status",
+      "type": "string",
+      "daemon": "clasp_chiller",
+      "method": "report_status",
+      "parameter": "status_label"
+    },
+    {
+      "key": "CHILTEMP",
+      "comment": "[deg c] cooling water temperature",
+      "type": "float2dp",
+      "daemon": "clasp_chiller",
+      "method": "report_status",
+      "parameter": "water_temp"
+    },
+    {
+      "key": "CHILSET",
+      "comment": "[deg c] cooling water set point",
+      "type": "float2dp",
+      "daemon": "clasp_chiller",
+      "method": "report_status",
+      "parameter": "setpoint_temp"
+    },
+    {
+      "key": "CHILPWR",
+      "comment": "[%] water chiller TEC power",
+      "type": "int",
+      "daemon": "clasp_chiller",
+      "method": "report_status",
+      "parameter": "tec_power"
     }
   ]
 }
