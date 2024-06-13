@@ -26,7 +26,7 @@ import random
 import sys
 import traceback
 import Pyro4
-from rockit.common import TFmt
+from rockit.common import print
 from rockit.pipeline import CommandStatus, Config
 
 SCRIPT_NAME = os.path.basename(sys.argv[0])
@@ -84,47 +84,37 @@ def print_status(config, _):
         data = pipeline.report_status()
 
     print('Frame Archiving:')
-    print('   Archive subdirectory is ' + TFmt.Bold + data['archive_subdirectory'] + TFmt.Clear)
-    print('   Frame prefix is ' + TFmt.Bold + data['frame_prefix'] + TFmt.Clear)
-    print('   Frame type is ' + TFmt.Bold + data['frame_type'] + TFmt.Clear)
+    print(f'   Archive subdirectory is [b]{data["archive_subdirectory"]}[/b]')
+    print(f'   Frame prefix is [b]{data["frame_prefix"]}[/b]')
+    print(f'   Frame type is [b]{data["frame_type"]}[/b]')
     if data['frame_type'] == 'SCIENCE':
-        print('   Frame object is ' + TFmt.Bold + data['frame_object'] + TFmt.Clear)
+        print(f'   Frame object is [b]{data["frame_object"]}[/b]')
     else:
         print('   Frame object not written (requires SCIENCE type)')
 
         for camera_id, enabled in data['archive_enabled'].items():
-            label = TFmt.Green + 'ARCHIVED' if enabled else TFmt.Red + 'DISCARDED'
+            label = '[green]ARCHIVED[/green]' if enabled else '[red]DISCARDED[/red]'
             if len(config.cameras) > 1:
                 prefix = f'   {camera_id} camera frames are '
             else:
                 prefix = '   Frames are '
-            print(prefix + TFmt.Bold + label + TFmt.Clear)
+            print(prefix + f'[b]{label}[/b]')
+
+    def enabled_label(e):
+        return '[green]ENABLED[/green]' if e else '[red]DISABLED[/red]'
 
     print('Pipeline flags:')
-    wcs = TFmt.Green + 'ENABLED' if data['wcs_enabled'] else TFmt.Red + 'DISABLED'
-    print('   WCS solutions are ' + TFmt.Bold + wcs + TFmt.Clear)
+    print(f'   WCS solutions are [b]{enabled_label(data["wcs_enabled"])}[/b]')
+    print(f'   Field rotation calculation is [b]{enabled_label(data["rotation_enabled"])}[/b]')
+    print(f'   HFD calculation is [b]{enabled_label(data["hfd_enabled"])}[/b]')
+    print(f'   HFD grid calculation is [b]{enabled_label(data["hfd_grid_enabled"])}[/b]')
+    print(f'   Intensity statistics are [b]{enabled_label(data["intensity_stats_enabled"])}[/b]')
 
-    rotation = TFmt.Green + 'ENABLED' if data['rotation_enabled'] else TFmt.Red + 'DISABLED'
-    print('   Field rotation calculation is ' + TFmt.Bold + rotation + TFmt.Clear)
-
-    hfd = TFmt.Green + 'ENABLED' if data['hfd_enabled'] else TFmt.Red + 'DISABLED'
-    print('   HFD calculation is ' + TFmt.Bold + hfd + TFmt.Clear)
-
-    hfd_grid = TFmt.Green + 'ENABLED' if data['hfd_grid_enabled'] else TFmt.Red + 'DISABLED'
-    print('   HFD grid calculation is ' + TFmt.Bold + hfd_grid + TFmt.Clear)
-
-    intstats = TFmt.Green + 'ENABLED' if data['intensity_stats_enabled'] else TFmt.Red + 'DISABLED'
-    print('   Intensity statistics are ' + TFmt.Bold + intstats + TFmt.Clear)
-
-    guideprofiles = TFmt.Red + 'DISABLED'
-    if data['guide_camera_id']:
-        guideprofiles = TFmt.Green + 'ENABLED' + TFmt.Clear + TFmt.Bold
-        if len(config.cameras) > 1:
-            guideprofiles += ' (' + data['guide_camera_id'] + ')'
-    print('   Guide profiles are ' + TFmt.Bold + guideprofiles + TFmt.Clear)
-
-    dash = TFmt.Green + 'ENABLED' if data['dashboard_enabled'] else TFmt.Red + 'DISABLED'
-    print('   Dashboard updates are ' + TFmt.Bold + dash + TFmt.Clear)
+    guideprofiles = enabled_label(data['guide_camera_id'])
+    if data['guide_camera_id'] and len(config.cameras) > 1:
+        guideprofiles += f' ({data["guide_camera_id"]})'
+    print(f'   Guide profiles are [b]{guideprofiles}[/b]')
+    print(f'   Dashboard updates are [b]{enabled_label(data["dashboard_enabled"])}[/b]')
     return 0
 
 
