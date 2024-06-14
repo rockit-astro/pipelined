@@ -23,9 +23,12 @@
 import glob
 import os
 import random
+import re
 import sys
+import time
 import traceback
 import Pyro4
+from astropy.samp import SAMPIntegratedClient
 from rockit.common import print
 from rockit.pipeline import CommandStatus, Config
 
@@ -66,6 +69,28 @@ def run_command(command, args):
     if ret not in [-1, 0]:
         print(CommandStatus.message(ret))
     sys.exit(ret)
+
+
+def get_ds9_instances():
+    local_client = SAMPIntegratedClient()
+    try:
+        local_client.connect()
+        client_name_map = {}
+        extract_name = re.compile(r'.*XPA_NAME:\t(.*) XPA_METHOD:.*')
+        for client_id in local_client.get_subscribed_clients('ds9.get'):
+            try:
+                # DS9 8.5 doesn't seem to offer a proper way to query the window name directly
+                result = local_client.ecall_and_wait(client_id, 'ds9.get', "1", cmd="xpa info")
+                if result['samp.status'] == 'samp.ok':
+                    m = extract_name.match(result['samp.result']['value'])
+                    client_name_map[m.group(1)] = client_id
+            except Exception:
+                pass
+        return client_name_map
+    except Exception:
+        return {}
+    finally:
+        local_client.disconnect()
 
 
 def camera_ids(config):
@@ -243,59 +268,68 @@ def register_preview(config, args):
     else:
         cameras = camera_ids(config)
         if len(args) != 1 or args[0] not in cameras:
-            print(f"usage: {SCRIPT_NAME}  preview ({'|'.join(cameras)})")
+            print(f"usage: {SCRIPT_NAME} preview ({'|'.join(cameras)})")
             return -1
 
         camera_id = cameras[args[0]]
 
-    try:
-        # This import may stall if there are issues with the network.
-        # Import this only when we need it to avoid delaying the other commands
-        import pyds9
+    # Generate a random name to avoid collisions
+    ds9_instances = get_ds9_instances()
+    client_index = 0
+    while True:
+        client_index = random.randint(0, 999999)
+        name = f'preview-{camera_id}-{client_index:06d}'
+        if name not in ds9_instances:
+            break
 
-        # Generate a random name to avoid collisions
-        names = pyds9.ds9_targets()
-        while True:
-            name = f'preview-{camera_id}-{random.randint(0, 999999):06d}'
-            if names is None or not any(n.startswith('DS9:'+name) for n in names):
+    client = SAMPIntegratedClient()
+    ds9 = None
+    try:
+        os.system(f'/usr/bin/ds9 -title {name} &')
+        for i in range(10):
+            time.sleep(1)
+            ds9_instances = get_ds9_instances()
+            if name in ds9_instances:
+                ds9 = ds9_instances[name]
                 break
 
-        ds9 = pyds9.DS9(name, wait=10)
-        ds9_port = int(ds9.access().split(':')[-1])
+        if ds9 is None:
+            print('error: failed to open DS9 preview window')
+            return -1
 
-        ds9.set('view filename no')
-        ds9.set('view physical no')
-        ds9.set('view frame no')
-        ds9.set('view buttons no')
-        ds9.set('view colorbar no')
-        ds9.set('view layout vertical')
-        ds9.set('scale mode zscale')
-        ds9.set(f"width {config.cameras[camera_id]['preview_ds9_width']}")
-        ds9.set(f"height {config.cameras[camera_id]['preview_ds9_height']}")
-        ds9.set('background black')
-        ds9.set(f"zoom {config.cameras[camera_id]['preview_ds9_zoom']}")
+        client.connect()
+        client.enotify(ds9, 'ds9.set', cmd='view filename no')
+        client.enotify(ds9, 'ds9.set', cmd='view physical no')
+        client.enotify(ds9, 'ds9.set', cmd='view frame no')
+        client.enotify(ds9, 'ds9.set', cmd='view buttons no')
+        client.enotify(ds9, 'ds9.set', cmd='view colorbar no')
+        client.enotify(ds9, 'ds9.set', cmd='view layout vertical')
+        client.enotify(ds9, 'ds9.set', cmd='scale mode zscale')
+        client.enotify(ds9, 'ds9.set', cmd='background black')
+        client.enotify(ds9, 'ds9.set', cmd=f'width {config.cameras[camera_id]["preview_ds9_width"]}')
+        client.enotify(ds9, 'ds9.set', cmd=f'height {config.cameras[camera_id]["preview_ds9_height"]}')
+        client.enotify(ds9, 'ds9.set', cmd=f'zoom {config.cameras[camera_id]["preview_ds9_zoom"]}')
     except Exception:
         traceback.print_exc(file=sys.stdout)
         print('error: failed to open DS9 preview window')
         return -1
+    finally:
+        client.disconnect()
 
     with config.daemon.connect() as pipeline:
         # Note: If the server is running on a different machine scp/ssh will be used to update the preview
         # This requires that key-based ssh has been configured from the server machine to this client machine.
-        return pipeline.register_preview(camera_id, ds9_port)
+        # HACK: Maintain compatibility with xpa ports by passing the random integer in the window title
+        # instead of the SAMP client name
+        return pipeline.register_preview(camera_id, client_index)
 
 
 def display_preview(config, args):
     """Internal function to update the image displayed in a given ds9 preview window"""
 
-    # This import may stall if there are issues with the network.
-    # Import this only when we need it to avoid delaying the other commands
-    import pyds9
     from astropy.io import fits
-
     try:
-        ds9 = pyds9.DS9('7f000001:' + args[0], start=False, wait=1)
-        label = 'image; text {} {} #color=green font="helvetica 12 bold" text="{}" select=0'
+        label = 'region command "text({},{}) # color = green font = \\"helvetica 12 bold\\" text = \\"{}\\" select=0"'
         header = fits.getheader(args[1])
         camera_config = config.cameras[header['CAMID']]
         margin = camera_config['preview_ds9_annotation_margin'] / header.get('CAM-BIN', 1)
@@ -320,22 +354,22 @@ def display_preview(config, args):
 
         saved = 'SAVED' if 'FILENAME' in header else 'NOT SAVED'
         annotations = [
-            ('regions', label.format(width / 4, height + margin, timestamp)),
-            ('regions', label.format(3 * width / 4, height + margin, exptime)),
-            ('regions', label.format(width / 2, -margin, saved))
+            label.format(width / 4, height + margin, timestamp),
+            label.format(3 * width / 4, height + margin, exptime),
+            label.format(width / 2, -margin, saved)
         ]
 
         if 'WCSSOLVE' in header:
-            annotations.append(('regions', label.format(width / 4, -margin,
-                                                        'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED')))
+            annotations.append(label.format(width / 4, -margin,
+                                            'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED'))
 
         if 'FIELDROT' in header:
-            annotations.append(('regions', label.format(width / 2, -2 * margin,
-                                                        f'North is {header["FIELDROT"]:.1f} deg CCW of +X')))
+            annotations.append(label.format(width / 2, -2 * margin,
+                                            f'North is {header["FIELDROT"]:.1f} deg CCW of +X'))
 
         if 'MEDHFD' in header:
-            annotations.append(('regions', label.format(4 * width / 5, -margin,
-                                                        f'HFD: {header["MEDHFD"]:.2f} arcsec')))
+            annotations.append(label.format(4 * width / 5, -margin,
+                                            f'HFD: {header["MEDHFD"]:.2f} arcsec'))
 
         if 'HFD_ROWS' in header and 'HFD_COLS' in header:
             x_step = header['NAXIS1'] / header['HFD_COLS']
@@ -346,20 +380,23 @@ def display_preview(config, args):
                 for i in range(header['HFD_COLS']):
                     x = (i + 0.5) * x_step
                     y = (j + 0.5) * y_step
-                    annotations.append(('regions', f'box({x:.6f},{y:.6f},{x_step},{y_step}) # color=yellow'))
+                    annotations.append(f'region command "box({x:.6f},{y:.6f},{x_step},{y_step}) # color = yellow"')
                     median = header.get(f'HFD_{j:02d}{i:02d}', None)
                     if median is not None:
-                        annotations.append(('regions', f'text {x:.6f} {y:.6f} # color=green text="{median:.2f}"'))
+                        annotations.append(f'region command "text({x:.6f},{y:.6f}) # color = green text = \\"{median:.2f}\\""')
 
-        ds9.set(f'file "{args[1]}"')
-        for annotation in annotations:
-            if isinstance(annotation, tuple):
-                ds9.set(annotation[0], annotation[1])
-            else:
-                ds9.set(annotation)
-
+        client = SAMPIntegratedClient()
+        try:
+            name = f'preview-{header["CAMID"]}-{int(args[0]):06d}'
+            ds9 = get_ds9_instances()[name]
+            client.connect()
+            client.enotify(ds9, 'ds9.set', cmd=f'file "{args[1]}"')
+            for annotation in annotations:
+                client.enotify(ds9, 'ds9.set', cmd=annotation)
+        finally:
+            client.disconnect()
         return CommandStatus.Succeeded
-    except:
+    except Exception:
         return CommandStatus.Failed
 
 

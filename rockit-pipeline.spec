@@ -70,7 +70,7 @@ Requires: python3-rockit-pipeline python3-astropy python3-sep python3-pillow pyt
 %package client
 Summary:  Data pipeline client
 Group:    Unspecified
-Requires: python3-rockit-pipeline python3-pyds9 ds9 xpa
+Requires: python3-rockit-pipeline ds9
 
 %description client
 
