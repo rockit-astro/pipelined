@@ -1005,8 +1005,7 @@ class PipelineWorkerDaemon:
                 if self._preview_ds9_ports[i] == 0:
                     break
 
-            client_ip = Pyro4.current_context.client.sock.getpeername()[0]
-            if client_ip != self._camera_daemon.host:
+            if host != self._camera_daemon.host:
                 try:
                     # Check whether we are able to connect back to the client, otherwise fail early
                     # This requires that key-based ssh access has been configured from the server to the calling client!
