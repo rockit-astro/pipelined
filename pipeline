@@ -329,70 +329,90 @@ def display_preview(config, args):
 
     from astropy.io import fits
     try:
-        label = 'region command "text({},{}) # color = green font = \\"helvetica 12 bold\\" text = \\"{}\\" select=0"'
         header = fits.getheader(args[1])
         camera_config = config.cameras[header['CAMID']]
-        margin = camera_config['preview_ds9_annotation_margin'] / header.get('CAM-BIN', 1)
-
-        width = header['NAXIS1']
-        height = header['NAXIS2']
-        timestamp = header['DATE-OBS']
-        time_src = header.get('TIME-SRC', None)
-        if time_src:
-            timestamp += f' ({time_src})'
-
-        prefix = []
-        if camera_config['preview_display_camera_id']:
-            prefix.append(header['CAMID'])
-        if camera_config['preview_display_filter']:
-            prefix.append(header.get('FILTER', 'UNKNOWN'))
-        exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
-
-        cam_transfer = header.get('CAM-TFER', None)
-        if cam_transfer:
-            exptime += f' ({cam_transfer})'
-
-        saved = 'SAVED' if 'FILENAME' in header else 'NOT SAVED'
-        annotations = [
-            label.format(width / 4, height + margin, timestamp),
-            label.format(3 * width / 4, height + margin, exptime),
-            label.format(width / 2, -margin, saved)
-        ]
-
-        if 'WCSSOLVE' in header:
-            annotations.append(label.format(width / 4, -margin,
-                                            'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED'))
-
-        if 'FIELDROT' in header:
-            annotations.append(label.format(width / 2, -2 * margin,
-                                            f'North is {header["FIELDROT"]:.1f} deg CCW of +X'))
-
-        if 'MEDHFD' in header:
-            annotations.append(label.format(4 * width / 5, -margin,
-                                            f'HFD: {header["MEDHFD"]:.2f} arcsec'))
-
-        if 'HFD_ROWS' in header and 'HFD_COLS' in header:
-            x_step = header['NAXIS1'] / header['HFD_COLS']
-            y_step = header['NAXIS2'] / header['HFD_ROWS']
-
-            annotations = []
-            for j in range(header['HFD_ROWS']):
-                for i in range(header['HFD_COLS']):
-                    x = (i + 0.5) * x_step
-                    y = (j + 0.5) * y_step
-                    annotations.append(f'region command "box({x:.6f},{y:.6f},{x_step},{y_step}) # color = yellow"')
-                    median = header.get(f'HFD_{j:02d}{i:02d}', None)
-                    if median is not None:
-                        annotations.append(f'region command "text({x:.6f},{y:.6f}) # color = green text = \\"{median:.2f}\\""')
 
         client = SAMPIntegratedClient()
         try:
-            name = f'preview-{header["CAMID"]}-{int(args[0]):06d}'
-            ds9 = get_ds9_instances()[name]
+            ds9 = get_ds9_instances()[f'preview-{header["CAMID"]}-{int(args[0]):06d}']
             client.connect()
+
+            result = client.ecall_and_wait(ds9, "ds9.get", "1", cmd="width")
+            width = int(result.get('samp.result', {}).get('value', camera_config['preview_ds9_width']))
+
+            result = client.ecall_and_wait(ds9,  "ds9.get", "1", cmd="height")
+            height = int(result.get('samp.result', {}).get('value', camera_config['preview_ds9_height']))
+            half_margin = 10
+
+            def text_label(pos, text):
+                if pos[1] == 'l':
+                    x = width / 4
+                elif pos[1] == 'r':
+                    x = 3 * width / 4
+                else:
+                    x = width / 2
+
+                y = half_margin if pos[0] == 't' else height - half_margin
+
+                return f'text {x} {y + 2} "{text}" # color = white fontweight = bold'
+
+            timestamp = header['DATE-OBS']
+            time_src = header.get('TIME-SRC', None)
+            if time_src:
+                timestamp += f' ({time_src})'
+
+            prefix = []
+            if camera_config['preview_display_camera_id']:
+                prefix.append(header['CAMID'])
+            if camera_config['preview_display_filter']:
+                prefix.append(header.get('FILTER', 'UNKNOWN'))
+            exptime = (', '.join(prefix) + ' @ ' if prefix else '') + f'{header["EXPTIME"]:.3f}s'
+
+            cam_transfer = header.get('CAM-TFER', None)
+            if cam_transfer:
+                exptime += f' ({cam_transfer})'
+
+            regions = []
+            ilustrations = [
+                f'box 0 {half_margin:.1f} {width} {half_margin:.1f} # color = black fill = yes',
+                f'box 0 {height - half_margin:.1f} {width} {half_margin:.1f} # color = black fill = yes',
+                text_label('tl', timestamp),
+                text_label('tr', exptime),
+                text_label('bm', 'SAVED' if 'FILENAME' in header else 'NOT SAVED'),
+            ]
+
+            if 'WCSSOLVE' in header:
+                ilustrations.append(text_label('bl', 'WCS: SOLVED' if header['WCSSOLVE'] else 'WCS: FAILED'))
+
+            if 'FIELDROT' in header:
+                ilustrations.append(text_label('br', f'North is {header["FIELDROT"]:.1f} deg CCW of +X'))
+
+            elif 'MEDHFD' in header:
+                ilustrations.append(text_label('br', f'HFD: {header["MEDHFD"]:.2f} arcsec'))
+
+            if 'HFD_ROWS' in header and 'HFD_COLS' in header:
+                x_step = header['NAXIS1'] / header['HFD_COLS']
+                y_step = header['NAXIS2'] / header['HFD_ROWS']
+
+                for j in range(header['HFD_ROWS']):
+                    for i in range(header['HFD_COLS']):
+                        x = (i + 0.5) * x_step
+                        y = (j + 0.5) * y_step
+                        regions.append(f'box {x:.6f} {y:.6f} {x_step} {y_step} # color = yellow')
+                        median = header.get(f'HFD_{j:02d}{i:02d}', None)
+                        if median is not None:
+                            regions.append(f'text {x:.6f} {y:.6f} "{median:.2f}" # color = green')
+
             client.enotify(ds9, 'ds9.set', cmd=f'file "{args[1]}"')
-            for annotation in annotations:
-                client.enotify(ds9, 'ds9.set', cmd=annotation)
+            client.enotify(ds9, 'ds9.set', cmd=f'illustrate delete all')
+            for illustration in ilustrations:
+                command = illustration.replace('"', '\\\"')
+                client.enotify(ds9, 'ds9.set', cmd=f'illustrate command "{command}"')
+
+            for region in regions:
+                command = region.replace('"', '\\\"')
+                client.enotify(ds9, 'ds9.set', cmd=f'region command "{command}"')
+
         finally:
             client.disconnect()
         return CommandStatus.Succeeded

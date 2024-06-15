@@ -44,7 +44,6 @@ The configuration options are:
       "preview_ds9_width": 512, # Default ds9 window width for pipeline preview windows.
       "preview_ds9_height": 572, # Default ds9 window height for pipeline preview windows.
       "preview_ds9_zoom": 0.5, # Default ds9 window zoom for pipeline preview windows.
-      "preview_ds9_annotation_margin": 30, # Pixel offset for information annotations above/below the ds9 preview.
       "hfd_grid_tiles_x": 5, # Number of vertical slices used by the hfd grid previews
       "hfd_grid_tiles_y": 4, # Number of horizontal slices used by the hfd grid previews
       "wcs": {
