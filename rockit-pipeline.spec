@@ -50,6 +50,9 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/ngts_m06.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/ngts_m06.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/h400.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/h400.args %{buildroot}%{_sysconfdir}/pipelined
+
 %package server
 Summary:  Data pipeline server
 Group:    Unspecified
@@ -147,5 +150,15 @@ Group:   Unspecified
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/ngts_m06.json
 %{_sysconfdir}/pipelined/ngts_m06.args
+
+%package data-h400
+Summary: Data pipeline configuration for H400 test telescope.
+Group:   Unspecified
+%description data-h400
+
+%files data-h400
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/h400.json
+%{_sysconfdir}/pipelined/h400.args
 
 %changelog
