@@ -108,7 +108,7 @@ The automated packaging scripts will push 6 RPM packages to the observatory pack
 | rockit-pipeline-data-clasp     | Contains the json configuration for the CLASP pipeline installation.              |
 | rockit-pipeline-data-halfmetre | Contains the json configuration for the Half metre pipeline installation.         |
 | rockit-pipeline-data-onemetre  | Contains the json configuration for the W1m pipeline installation.                |
-| rockit-pipeline-data-superwasp | Contains the json configuration for the SuperWASP pipeline installation.          |
+| rockit-pipeline-data-sting     | Contains the json configuration for the STING pipeline installation.              |
 | python3-rockit-pipeline        | Contains the python module with shared code.                                      |
 
 After installing packages, the main systemd service should be enabled:

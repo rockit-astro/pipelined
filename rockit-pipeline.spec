@@ -38,11 +38,11 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/halfmetre.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/halfmetre.args %{buildroot}%{_sysconfdir}/pipelined
 
-%{__install} %{_sourcedir}/config/superwasp.json %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/superwasp_cam1.args %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/superwasp_cam2.args %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/superwasp_cam3.args %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/superwasp_cam4.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/sting.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/sting_cam1.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/sting_cam2.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/sting_cam3.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/sting_cam4.args %{buildroot}%{_sysconfdir}/pipelined
 
 %{__install} %{_sourcedir}/config/warwick.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/warwick.args %{buildroot}%{_sysconfdir}/pipelined
@@ -116,18 +116,18 @@ Group:   Unspecified
 %{_sysconfdir}/pipelined/onemetre_blue.args
 %{_sysconfdir}/pipelined/onemetre_red.args
 
-%package data-superwasp
-Summary: Data pipeline configuration for the SuperWASP telescope.
+%package data-sting
+Summary: Data pipeline configuration for the STING telescope.
 Group:   Unspecified
-%description data-superwasp
+%description data-sting
 
-%files data-superwasp
+%files data-sting
 %defattr(0644,root,root,-)
-%{_sysconfdir}/pipelined/superwasp.json
-%{_sysconfdir}/pipelined/superwasp_cam1.args
-%{_sysconfdir}/pipelined/superwasp_cam2.args
-%{_sysconfdir}/pipelined/superwasp_cam3.args
-%{_sysconfdir}/pipelined/superwasp_cam4.args
+%{_sysconfdir}/pipelined/sting.json
+%{_sysconfdir}/pipelined/sting_cam1.args
+%{_sysconfdir}/pipelined/sting_cam2.args
+%{_sysconfdir}/pipelined/sting_cam3.args
+%{_sysconfdir}/pipelined/sting_cam4.args
 
 %changelog
 

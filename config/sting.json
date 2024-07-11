@@ -1,30 +1,30 @@
 {
-  "daemon": "superwasp_pipeline",
-  "log_name": "pipelined@superwasp",
-  "control_machines": ["SWASPTCS", "SWASPDAS1", "SWASPDAS2"],
-  "notify_frame_machines": ["SWASPCameraVM1", "SWASPCameraVM2", "SWASPCameraVM3", "SWASPCameraVM4"],
+  "daemon": "sting_pipeline",
+  "log_name": "pipelined@sting",
+  "control_machines": ["STINGTCS", "STINGDAS1", "STINGDAS2"],
+  "notify_frame_machines": ["STINGCameraVM1", "STINGCameraVM2", "STINGCameraVM3", "STINGCameraVM4"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
   "telescope_query_timeout": 1,
-  "ops_daemon": "superwasp_operations",
+  "ops_daemon": "sting_operations",
   "guiding_min_interval": 5,
   "preview_clients": [
     {
-        "remote_machine": "SWASPTCS",
+        "remote_machine": "STINGTCS",
         "remote_user": "ops",
         "remote_path": "/tmp/",
         "remote_command": "/usr/bin/pipeline display",
         "key": "id_rsa"
     },
     {
-        "remote_machine": "SWASPDAS1",
+        "remote_machine": "STINGDAS1",
         "remote_user": "ops",
         "remote_path": "/tmp/",
         "remote_command": "/usr/bin/pipeline display",
         "key": "id_rsa"
     },
     {
-        "remote_machine": "SWASPDAS2",
+        "remote_machine": "STINGDAS2",
         "remote_user": "ops",
         "remote_path": "/tmp/",
         "remote_command": "/usr/bin/pipeline display",
@@ -33,7 +33,7 @@
   ],
   "cameras": {
     "CAM1": {
-      "worker_daemon": "superwasp_pipeline_cam1",
+      "worker_daemon": "sting_pipeline_cam1",
       "worker_processes": 2,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
@@ -55,7 +55,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "astrometry_daemon": "superwasp_pipeline_astrometry_das1",
+        "astrometry_daemon": "sting_pipeline_astrometry_das1",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -79,7 +79,7 @@
       }
     },
     "CAM2": {
-      "worker_daemon": "superwasp_pipeline_cam2",
+      "worker_daemon": "sting_pipeline_cam2",
       "worker_processes": 2,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
@@ -101,7 +101,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "astrometry_daemon": "superwasp_pipeline_astrometry_das1",
+        "astrometry_daemon": "sting_pipeline_astrometry_das1",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -125,7 +125,7 @@
       }
     },
     "CAM3": {
-      "worker_daemon": "superwasp_pipeline_cam3",
+      "worker_daemon": "sting_pipeline_cam3",
       "worker_processes": 2,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
@@ -147,7 +147,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "astrometry_daemon": "superwasp_pipeline_astrometry_das2",
+        "astrometry_daemon": "sting_pipeline_astrometry_das2",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -171,7 +171,7 @@
       }
     },
     "CAM4": {
-      "worker_daemon": "superwasp_pipeline_cam4",
+      "worker_daemon": "sting_pipeline_cam4",
       "worker_processes": 2,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
@@ -193,7 +193,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "astrometry_daemon": "superwasp_pipeline_astrometry_das2",
+        "astrometry_daemon": "sting_pipeline_astrometry_das2",
         "scale_high": 4.5,
         "scale_low": 3.5,
         "timeout": 10.0,
@@ -264,14 +264,14 @@
       "key": "DOMETEMP",
       "comment": "[deg c] temperature inside dome",
       "sensor": "clasp_domealert",
-      "parameter": "superwasp_temperature",
+      "parameter": "sting_temperature",
       "type": "float1dp"
     },
     {
       "key": "DOMEHUMD",
       "comment": "[%] humidity inside dome",
       "sensor": "clasp_domealert",
-      "parameter": "superwasp_humidity",
+      "parameter": "sting_humidity",
       "type": "float1dp"
     },
     {
@@ -329,7 +329,7 @@
       "key": "MNTSTATE",
       "comment": "telescope status",
       "type": "string",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "state_label"
     },
@@ -337,7 +337,7 @@
       "key": "DOMENORT",
       "comment": "dome north shutter status",
       "type": "string",
-      "daemon": "superwasp_dome",
+      "daemon": "sting_dome",
       "method": "status",
       "parameter": "shutter_b_label"
     },
@@ -345,7 +345,7 @@
       "key": "DOMESOUT",
       "comment": "dome south shutter status",
       "type": "string",
-      "daemon": "superwasp_dome",
+      "daemon": "sting_dome",
       "method": "status",
       "parameter": "shutter_a_label"
     },
@@ -353,7 +353,7 @@
       "key": "MNTRA",
       "comment": "mount nominal J2000 RA",
       "type": "sexagesimalha",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "ra"
     },
@@ -361,7 +361,7 @@
       "key": "MNTDEC",
       "comment": "mount nominal J2000 Dec",
       "type": "sexagesimaldeg",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "dec"
     },
@@ -369,7 +369,7 @@
       "key": "MNTHA",
       "comment": "mount nominal HA",
       "type": "sexagesimalha",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "ha"
     },
@@ -377,7 +377,7 @@
       "key": "MNTRAD",
       "comment": "[deg] mount nominal J2000 RA",
       "type": "float5dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "ra"
     },
@@ -385,7 +385,7 @@
       "key": "MNTDECD",
       "comment": "[deg] mount nominal J2000 Dec",
       "type": "float5dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "dec"
     },
@@ -393,7 +393,7 @@
       "key": "MNTHAD",
       "comment": "[deg] mount nominal hour angle",
       "type": "float5dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "ha"
     },
@@ -401,7 +401,7 @@
       "key": "ALTITUDE",
       "comment": "[deg] mount nominal altitude",
       "type": "float5dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "alt"
     },
@@ -409,7 +409,7 @@
       "key": "AZIMUTH",
       "comment": "[deg] mount nominal azimuth",
       "type": "float5dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "az"
     },
@@ -417,7 +417,7 @@
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "site_latitude"
     },
@@ -425,7 +425,7 @@
       "key": "SITELONG",
       "comment": "telescope longitude (east)",
       "type": "sexagesimaldeg",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "site_longitude"
     },
@@ -433,7 +433,7 @@
       "key": "SITEELEV",
       "comment": "[m] telescope elevation",
       "type": "int",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "site_elevation"
     },
@@ -441,7 +441,7 @@
       "key": "MOONSEP",
       "comment": "[deg] nominal distance from moon",
       "type": "float1dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "moon_separation"
     },
@@ -449,7 +449,7 @@
       "key": "SUNSEP",
       "comment": "[deg] nominal distance from sun",
       "type": "float1dp",
-      "daemon": "superwasp_telescope",
+      "daemon": "sting_telescope",
       "method": "report_status",
       "parameter": "sun_separation"
     },
@@ -457,7 +457,7 @@
       "key": "LENSTEMP",
       "comment": "[deg c] lens temperature",
       "camera": "CAM1",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "temp_1",
       "type": "float1dp"
@@ -466,7 +466,7 @@
       "key": "LENSSET",
       "comment": "[deg c] lens temperature set point",
       "camera": "CAM1",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "set_1",
       "type": "float1dp"
@@ -475,7 +475,7 @@
       "key": "LENSTEMP",
       "comment": "[deg c] lens temperature",
       "camera": "CAM2",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "temp_2",
       "type": "float1dp"
@@ -484,7 +484,7 @@
       "key": "LENSSET",
       "comment": "[deg c] lens temperature set point",
       "camera": "CAM2",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "set_2",
       "type": "float1dp"
@@ -493,7 +493,7 @@
       "key": "LENSTEMP",
       "comment": "[deg c] lens temperature",
       "camera": "CAM3",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "temp_3",
       "type": "float1dp"
@@ -502,7 +502,7 @@
       "key": "LENSSET",
       "comment": "[deg c] lens temperature set point",
       "camera": "CAM3",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "set_3",
       "type": "float1dp"
@@ -511,7 +511,7 @@
       "key": "LENSTEMP",
       "comment": "[deg c] lens temperature",
       "camera": "CAM4",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "temp_4",
       "type": "float1dp"
@@ -520,7 +520,7 @@
       "key": "LENSSET",
       "comment": "[deg c] lens temperature set point",
       "camera": "CAM4",
-      "daemon": "superwasp_lensheater",
+      "daemon": "sting_lensheater",
       "method": "report_status",
       "parameter": "set_4",
       "type": "float1dp"
