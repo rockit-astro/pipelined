@@ -1,8 +1,8 @@
 {
   "daemon": "onemetre_pipeline",
   "log_name": "pipelined",
-  "control_machines": ["OneMetreDome", "OneMetreTCS"],
-  "notify_frame_machines": ["OneMetreTCS"],
+  "control_machines": ["OneMetreDome", "OneMetreTCS", "OneMetreDAS"],
+  "notify_frame_machines": ["OneMetreDAS"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
   "telescope_query_timeout": 1,
@@ -18,6 +18,13 @@
     },
     {
         "remote_machine": "OneMetreTCS",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    },
+    {
+        "remote_machine": "OneMetreDAS",
         "remote_user": "ops",
         "remote_path": "/tmp/",
         "remote_command": "/usr/bin/pipeline display",
