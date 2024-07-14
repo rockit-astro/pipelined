@@ -149,7 +149,7 @@ def dashboard(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_dashboard(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} dashboard [enable|disable]')
+    print(f'usage: {SCRIPT_NAME} dashboard <enable|disable>')
     return -1
 
 
@@ -185,7 +185,7 @@ def set_type(config, args):
     if len(args) == 1 and args[0] in TYPE_VALUES:
         with config.daemon.connect() as pipeline:
             return pipeline.set_frame_type(TYPE_VALUES[args[0]])
-    print(f'usage: {SCRIPT_NAME} type (bias|dark|flat|science|junk)')
+    print(f'usage: {SCRIPT_NAME} type <bias|dark|flat|science|junk>')
     return -1
 
 
@@ -196,14 +196,14 @@ def set_archive(config, args):
             with config.daemon.connect() as pipeline:
                 return pipeline.set_archive(next(iter(config.cameras)), args[0] == 'enable')
 
-        print(f"usage: {SCRIPT_NAME} archive (enable|disable)")
+        print(f"usage: {SCRIPT_NAME} archive <enable|disable>")
     else:
         cameras = camera_ids(config)
         if len(args) == 2 and args[0] in cameras and (args[1] == 'enable' or args[1] == 'disable'):
             with config.daemon.connect() as pipeline:
                 return pipeline.set_archive(cameras[args[0]], args[1] == 'enable')
 
-        print(f"usage: {SCRIPT_NAME} archive ({'|'.join(cameras)}) (enable|disable)")
+        print(f"usage: {SCRIPT_NAME} archive <{'|'.join(cameras)}> <enable|disable>")
     return -1
 
 
@@ -213,7 +213,7 @@ def set_wcs(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_wcs(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} wcs (enable|disable)')
+    print(f'usage: {SCRIPT_NAME} wcs <enable|disable>')
     return -1
 
 
@@ -223,7 +223,7 @@ def set_rotation(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_rotation(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} rotation (enable|disable)')
+    print(f'usage: {SCRIPT_NAME} rotation <enable|disable>')
     return -1
 
 
@@ -233,7 +233,7 @@ def set_hfd(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_hfd(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} hfd (enable|disable)')
+    print(f'usage: {SCRIPT_NAME} hfd <enable|disable>')
     return -1
 
 
@@ -243,7 +243,7 @@ def set_hfd_grid(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_hfd_grid(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} hfdgrid (enable|disable)')
+    print(f'usage: {SCRIPT_NAME} hfdgrid <enable|disable>')
     return -1
 
 
@@ -253,7 +253,7 @@ def set_intensity_stats(config, args):
         with config.daemon.connect() as pipeline:
             return pipeline.set_intensity_stats(args[0] == 'enable')
 
-    print(f'usage: {SCRIPT_NAME} intstats (enable|disable)')
+    print(f'usage: {SCRIPT_NAME} intstats <enable|disable>')
     return -1
 
 
@@ -268,7 +268,7 @@ def register_preview(config, args):
     else:
         cameras = camera_ids(config)
         if len(args) != 1 or args[0] not in cameras:
-            print(f"usage: {SCRIPT_NAME} preview ({'|'.join(cameras)})")
+            print(f"usage: {SCRIPT_NAME} preview <{'|'.join(cameras)}>")
             return -1
 
         camera_id = cameras[args[0]]
@@ -428,7 +428,7 @@ def reset(config, _):
 
 def print_usage():
     """Prints the utility help"""
-    print(f'usage: {SCRIPT_NAME} <command> [<args>]')
+    print(f'usage: {SCRIPT_NAME} <command> \\[<args>]')
     print()
     print('general commands:')
     print('   status       print a human-readable summary of the pipeline status')
