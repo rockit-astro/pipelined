@@ -246,6 +246,14 @@
       "parameter": "current_steps"
     },
     {
+      "key": "TARGFOC",
+      "comment": "[steps] commanded telescope focus",
+      "type": "int",
+      "daemon": "halfmetre_focuser",
+      "method": "report_status",
+      "parameter": "target_steps"
+    },
+    {
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
