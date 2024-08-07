@@ -53,6 +53,9 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/h400.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/h400.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/portable.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/portable.args %{buildroot}%{_sysconfdir}/pipelined
+
 %package server
 Summary:  Data pipeline server
 Group:    Unspecified
@@ -160,5 +163,15 @@ Group:   Unspecified
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/h400.json
 %{_sysconfdir}/pipelined/h400.args
+
+%package data-portable
+Summary: Data pipeline configuration for the portable telescope.
+Group:   Unspecified
+%description data-portable
+
+%files data-portable
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/portable.json
+%{_sysconfdir}/pipelined/portable.args
 
 %changelog

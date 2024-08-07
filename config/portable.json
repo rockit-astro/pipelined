@@ -1,0 +1,173 @@
+{
+  "daemon": "portable_pipeline",
+  "log_name": "pipelined@portable",
+  "control_machines": ["PortableTCS"],
+  "notify_frame_machines": ["PortableTCS"],
+  "telescope_query_timeout": 1,
+  "ops_daemon": "portable_operations",
+  "guiding_min_interval": 5,
+  "preview_clients": [
+    {
+        "remote_machine": "PortableTCS",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    }
+  ],
+  "cameras": {
+    "PORTABLE": {
+      "worker_daemon": "portable_pipeline_cam",
+      "worker_processes": 4,
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
+      "ssh_root_path": "/home/ops/.ssh",
+      "output_filename_add_camera_id": true,
+      "output_filename_add_filter": false,
+      "binning_card": "CAM-BIN",
+      "image_region_card": "IMAG-RGN",
+      "overscan_region_card": "BIAS-RGN",
+      "platescale": 0.988,
+      "object_minpix": 16,
+      "preview_min_interval": 5,
+      "preview_max_instances": 5,
+      "preview_ds9_width": 680,
+      "preview_ds9_height": 480,
+      "preview_ds9_zoom": 0.0625,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4,
+      "wcs": {
+        "scale_low": 0.95,
+        "scale_high": 1.0,
+        "timeout": 4.0,
+        "tel_ra_card": "TELRA",
+        "tel_dec_card": "TELDEC",
+        "search_radius": 1.75
+      }
+    }
+  },
+  "telescope_cards": [
+    {
+      "key": "MNTSTATE",
+      "comment": "telescope status",
+      "type": "string",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "state_label"
+    },
+    {
+      "key": "MNTRA",
+      "comment": "mount nominal J2000 RA",
+      "type": "sexagesimalha",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDEC",
+      "comment": "mount nominal J2000 Dec",
+      "type": "sexagesimaldeg",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHA",
+      "comment": "mount nominal HA",
+      "type": "sexagesimalha",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "MNTRAD",
+      "comment": "[deg] mount nominal J2000 RA",
+      "type": "float5dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "ra"
+    },
+    {
+      "key": "MNTDECD",
+      "comment": "[deg] mount nominal J2000 Dec",
+      "type": "float5dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "dec"
+    },
+    {
+      "key": "MNTHAD",
+      "comment": "[deg] mount nominal hour angle",
+      "type": "float5dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "ha"
+    },
+    {
+      "key": "ALTITUDE",
+      "comment": "[deg] mount nominal altitude",
+      "type": "float5dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "alt"
+    },
+    {
+      "key": "AZIMUTH",
+      "comment": "[deg] mount nominal azimuth",
+      "type": "float5dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "az"
+    },
+    {
+      "key": "TELFOC",
+      "comment": "[steps] nominal telescope focus",
+      "type": "int",
+      "daemon": "portable_focus",
+      "method": "report_status",
+      "parameter": "current_steps_1"
+    },
+    {
+      "key": "SITELAT",
+      "comment": "telescope latitude (north)",
+      "type": "sexagesimaldeg",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "site_latitude"
+    },
+    {
+      "key": "SITELONG",
+      "comment": "telescope longitude (east)",
+      "type": "sexagesimaldeg",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "site_longitude"
+    },
+    {
+      "key": "SITEELEV",
+      "comment": "[m] telescope elevation",
+      "type": "int",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "site_elevation"
+    },
+    {
+      "key": "MOONSEP",
+      "comment": "[deg] nominal distance from moon",
+      "type": "float1dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "moon_separation"
+    },
+    {
+      "key": "SUNSEP",
+      "comment": "[deg] nominal distance from sun",
+      "type": "float1dp",
+      "daemon": "portable_telescope",
+      "method": "report_status",
+      "parameter": "sun_separation"
+    }
+  ]
+}
