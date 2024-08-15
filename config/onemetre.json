@@ -340,6 +340,24 @@
       "parameter": "telescope_focus_um"
     },
     {
+      "key": "REDFOCUS",
+      "comment": "[steps] nominal red camera focus",
+      "camera": "RED",
+      "type": "int",
+      "daemon": "onemetre_red_focuser",
+      "method": "report_status",
+      "parameter": "current_steps"
+    },
+    {
+      "key": "REDFTARG",
+      "comment": "[steps] commanded red camera focus",
+      "camera": "RED",
+      "type": "int",
+      "daemon": "onemetre_red_focuser",
+      "method": "report_status",
+      "parameter": "target_steps"
+    },
+    {
       "key": "SITELAT",
       "comment": "telescope latitude (north)",
       "type": "sexagesimaldeg",
