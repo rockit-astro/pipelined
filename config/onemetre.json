@@ -54,12 +54,12 @@
       "hfd_grid_tiles_x": 4,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "scale_high": 0.38,
-        "scale_low": 0.40,
+        "scale_high": 0.5,
+        "scale_low": 0.3,
         "timeout": 4.0,
         "tel_ra_card": "TELRA",
         "tel_dec_card": "TELDEC",
-        "search_radius": 1.75
+        "search_radius": 5
       },
       "dashboard": {
         "key": "dashboard",
@@ -68,7 +68,7 @@
         "remote_path": "/srv/dashboard/generated",
         "prefix": "dashboard-BLUE",
         "flip_vertical": true,
-        "flip_horizontal": false,
+        "flip_horizontal": true,
         "min_threshold": 5,
         "max_threshold": 95,
         "thumb_size": 1024,
@@ -98,12 +98,12 @@
       "hfd_grid_tiles_x": 4,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "scale_high": 0.38,
-        "scale_low": 0.40,
+        "scale_high": 0.5,
+        "scale_low": 0.3,
         "timeout": 4.0,
         "tel_ra_card": "TELRA",
         "tel_dec_card": "TELDEC",
-        "search_radius": 1.75
+        "search_radius": 5
       },
       "dashboard": {
         "key": "dashboard",
