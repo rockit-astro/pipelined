@@ -1,7 +1,7 @@
 {
   "daemon": "clasp_pipeline",
   "log_name": "pipelined@clasp",
-  "control_machines": ["CLASPTCS", "CLASPDAS"],
+  "control_machines": ["CLASPTCS", "CLASPCMOS", "CLASPSWIR"],
   "notify_frame_machines": ["CLASPCMOSVM","CLASPSWIRVM"],
   "environment_daemon": "observatory_environment",
   "environment_query_timeout": 1,
@@ -17,7 +17,14 @@
         "key": "id_rsa"
     },
     {
-        "remote_machine": "CLASPDAS",
+        "remote_machine": "CLASPCMOS",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    },
+    {
+        "remote_machine": "CLASPSWIR",
         "remote_user": "ops",
         "remote_path": "/tmp/",
         "remote_command": "/usr/bin/pipeline display",
@@ -25,8 +32,8 @@
     }
   ],
   "cameras": {
-    "CAM1": {
-      "worker_daemon": "clasp_pipeline_cam1",
+    "CMOS": {
+      "worker_daemon": "clasp_pipeline_cmos",
       "worker_processes": 12,
       "input_data_path": "R:/",
       "output_data_path": "Z:/",
@@ -48,7 +55,7 @@
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
       "wcs": {
-        "astrometry_daemon": "clasp_pipeline_astrometry_cam1",
+        "astrometry_daemon": "clasp_pipeline_astrometry",
         "scale_low": 0.95,
         "scale_high": 1.0,
         "timeout": 4.0,
@@ -71,8 +78,8 @@
         "min_interval": 30
       }
     },
-    "CAM2": {
-      "worker_daemon": "clasp_pipeline_cam2",
+    "SWIR": {
+      "worker_daemon": "clasp_pipeline_swir",
       "worker_processes": 4,
       "input_data_path": "/data/incoming",
       "output_data_path": "/data/raw",
@@ -81,8 +88,7 @@
       "output_filename_add_filter": false,
       "binning_card": "CAM-BIN",
       "image_region_card": "IMAG-RGN",
-      "coadditions_card": "COADDCNT",
-      "platescale": 2.62,
+      "platescale": 3.14,
       "object_minpix": 16,
       "preview_min_interval": 5,
       "preview_max_instances": 5,
@@ -93,11 +99,9 @@
       "preview_display_filter": false,
       "hfd_grid_tiles_x": 5,
       "hfd_grid_tiles_y": 4,
-      "master_bias_path": "/etc/pipelined/master-bias-CAM2.fits.gz",
-      "master_dark_path": "/etc/pipelined/master-dark-CAM2.fits.gz",
       "wcs": {
-        "scale_low": 2.55,
-        "scale_high": 2.66,
+        "scale_low": 3.0,
+        "scale_high": 3.3,
         "timeout": 4.0,
         "tel_ra_card": "TELRA",
         "tel_dec_card": "TELDEC",
