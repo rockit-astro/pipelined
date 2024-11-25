@@ -32,6 +32,7 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/clasp.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/clasp_cmos.args %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/clasp_swir.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/data/CLASP-SWIR.fits.bz2 %{buildroot}%{_sysconfdir}/pipelined
 
 %{__install} %{_sourcedir}/config/halfmetre.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/halfmetre.args %{buildroot}%{_sysconfdir}/pipelined
@@ -93,6 +94,7 @@ Group:   Unspecified
 %{_sysconfdir}/pipelined/clasp.json
 %{_sysconfdir}/pipelined/clasp_cmos.args
 %{_sysconfdir}/pipelined/clasp_swir.args
+%{_sysconfdir}/pipelined/CLASP-SWIR.fits.bz2
 
 %package data-halfmetre
 Summary: Data pipeline configuration for the half metre telescope.
