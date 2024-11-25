@@ -29,6 +29,7 @@
       "binning_card": "CAM-BIN",
       "image_region_card": "IMAG-RGN",
       "overscan_region_card": "BIAS-RGN",
+      "window_region_card": "CAM-WIND",
       "platescale": 0.20,
       "object_minpix": 16,
       "preview_min_interval": 5,

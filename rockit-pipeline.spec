@@ -32,6 +32,7 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/clasp.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/clasp_cmos.args %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/clasp_swir.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/data/CLASP-SWIR.fits.bz2 %{buildroot}%{_sysconfdir}/pipelined
 
 %{__install} %{_sourcedir}/config/halfmetre.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/halfmetre.args %{buildroot}%{_sysconfdir}/pipelined

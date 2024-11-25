@@ -367,19 +367,25 @@ def detect_objects(data, background_rms, config, binning, crop_x, crop_y):
         platescale = binning * config['platescale']
 
         # Note: data is expected to be background subtracted
-        objects = sep.extract(data, 5 * background_rms)
+        if isinstance(data, np.ma.MaskedArray):
+            mask = data.mask
+            data = data.data
+        else:
+            mask = None
+
+        objects = sep.extract(data, 5 * background_rms, mask=mask)
 
         # Work around sep issue #110
         objects['theta'][objects['theta'] > np.pi / 2] -= np.pi / 2
 
         kronrad, kron_flag = sep.kron_radius(data, objects['x'], objects['y'],
-                                             objects['a'], objects['b'], objects['theta'], 6.0)
+                                             objects['a'], objects['b'], objects['theta'], 6.0, mask=mask)
 
         flux, _, flux_flag = sep.sum_ellipse(data, objects['x'], objects['y'], objects['a'], objects['b'],
-                                             objects['theta'], 2.5 * kronrad, subpix=0)
+                                             objects['theta'], 2.5 * kronrad, subpix=0, mask=mask)
 
         r, radius_flag = sep.flux_radius(data, objects['x'], objects['y'],
-                                         6.0 * objects['a'], 0.5, normflux=flux, subpix=5)
+                                         6.0 * objects['a'], 0.5, normflux=flux, subpix=5, mask=mask)
 
         # pylint: disable=no-member
         filt = np.logical_and.reduce([
@@ -425,16 +431,16 @@ def add_hfd_header(header, objects):
 def add_intensity_stats_header(header, data_raw, data_cropped, config, master_bias_stats):
     """Adds the frame intensity to the frame header"""
     try:
-        header.append(create_float_card('MEANCNTS', np.mean(data_cropped),
+        header.append(create_float_card('MEANCNTS', np.ma.mean(data_cropped),
                                         '[adu] mean frame counts', 2), end=True)
-        header.append(create_float_card('MEDCNTS', np.median(data_cropped),
+        header.append(create_float_card('MEDCNTS', np.ma.median(data_cropped),
                                         '[adu] median frame counts', 2), end=True)
 
         if 'overscan_region_card' in config and config['overscan_region_card'] in header:
             bias, *_ = window_header_region(header, data_raw, config['overscan_region_card'])
-            header.append(create_float_card('MEANBIAS', np.mean(bias),
+            header.append(create_float_card('MEANBIAS', np.ma.mean(bias),
                                             '[adu] mean overscan bias counts', 2), end=True)
-            header.append(create_float_card('MEDBIAS', np.median(bias),
+            header.append(create_float_card('MEDBIAS', np.ma.median(bias),
                                             '[adu] median overscan bias counts', 2), end=True)
         elif master_bias_stats:
             coadds = 1
@@ -578,8 +584,8 @@ def notify_guide_profiles(header, data, log_name, ops_daemon):
     # Collapse into x/y profiles
     # Note: data is expected to already be background-subtracted
     # Note: Pyro doesn't support numpy arrays, so convert to a built-in type
-    profile_x = array.array('f', np.mean(data, axis=0))
-    profile_y = array.array('f', np.mean(data, axis=1))
+    profile_x = array.array('f', data.mean(axis=0))
+    profile_y = array.array('f', data.mean(axis=1))
 
     try:
         with ops_daemon.connect() as ops:
@@ -663,24 +669,27 @@ def process_frames(processing_queue, camera_config,
                            preview_client_indexes, preview_ds9_ports, preview_lock)
                      ).start()
 
-    # Apply bias/dark corrections if required
-    master_bias_stats = None
-    if 'master_bias_path' in camera_config:
-        master_bias = fits.getdata(camera_config['master_bias_path']).astype(float)
-        master_bias_stats = {
-            'median': np.median(master_bias),
-            'mean': np.median(master_bias),
-        }
+    # Apply corrections if required
+    if 'calibrations_path' in camera_config:
+        with fits.open(camera_config['calibrations_path']) as f:
+            master_bad_pixel_mask = f['MASK'].data.astype(bool)
+            master_bias = np.ma.MaskedArray(f['BIAS'].data, master_bad_pixel_mask)
 
-        # Normalize to just the pixel non-uniformity
-        master_bias_pixel_nonuniformity = master_bias - master_bias_stats['median']
-    else:
-        master_bias_pixel_nonuniformity = None
+            master_bias_stats = {
+                'median': np.ma.median(master_bias),
+                'mean': np.ma.mean(master_bias)
+            }
 
-    if 'master_dark_path' in camera_config:
-        master_dark_adu_per_sec = fits.getdata(camera_config['master_dark_path'])
+            # Normalize to just the pixel non-uniformity
+            master_bias_pixel_nonuniformity = master_bias - master_bias_stats['median']
+
+            master_dark_adu_per_sec = f['DARK'].data
+
     else:
+        master_bias_stats = None
         master_dark_adu_per_sec = None
+        master_bias_pixel_nonuniformity = None
+        master_bad_pixel_mask = None
 
     while True:
         # Blocks until a frame is available for processing
@@ -750,6 +759,8 @@ def process_frames(processing_queue, camera_config,
                 data_raw = fits.getdata(loadpath)
                 steps.append('data')
 
+                window_card = camera_config.get('window_region_card', None)
+
                 if master_bias_pixel_nonuniformity is not None or master_dark_adu_per_sec is not None:
                     data_raw_dtype = data_raw.dtype
                     data_raw_float = data_raw.astype(float)
@@ -760,15 +771,22 @@ def process_frames(processing_queue, camera_config,
                         if 'coadditions_card' in camera_config and camera_config['coadditions_card'] in header:
                             coadds = header[camera_config['coadditions_card']]
 
-                        data_raw_float -= coadds * master_bias_pixel_nonuniformity
+                        correction, *_ = window_header_region(header, master_bias_pixel_nonuniformity, window_card)
+                        data_raw_float -= coadds * correction
                         steps.append('bias')
 
                     # Correct for hot pixels
                     if master_dark_adu_per_sec is not None:
-                        data_raw_float -= header['EXPTIME'] * master_dark_adu_per_sec
+                        correction, *_ = window_header_region(header, master_dark_adu_per_sec, window_card)
+                        data_raw_float -= header['EXPTIME'] * correction
                         steps.append('dark')
 
                     data_raw = data_raw_float.astype(data_raw_dtype)
+
+                    if master_bad_pixel_mask is not None:
+                        mask, *_ = window_header_region(header, master_bad_pixel_mask, window_card)
+                        data_raw = np.ma.array(data_raw, mask=mask)
+                        data_raw_float = np.ma.array(data_raw_float, mask=mask)
 
                     # Avoid negative values wrapping to large positive values
                     limits = np.iinfo(data_raw_dtype)
@@ -776,18 +794,23 @@ def process_frames(processing_queue, camera_config,
                     data_raw[data_raw_float >= limits.max] = limits.max
 
             if calculate_cropped:
-                data_cropped, crop_x, crop_y = window_header_region(header, data_raw,
-                                                                    camera_config.get('image_region_card', None))
+                region = camera_config.get('image_region_card', None)
+                data_cropped, crop_x, crop_y = window_header_region(header, data_raw, region)
 
                 if data_cropped is not data_raw:
                     steps.append('crop')
 
             if calculate_bgsubtracted:
                 if data_raw_float is not None:
-                    data_bgsubtracted = data_raw_float
+                    data_bgsubtracted, *_ = window_header_region(header, data_raw_float, region)
                 else:
                     data_bgsubtracted = data_cropped.astype(float)
-                data_background = sep.Background(data_bgsubtracted)
+
+                if isinstance(data_bgsubtracted, np.ma.MaskedArray):
+                    data_background = sep.Background(data_bgsubtracted.data, mask=data_bgsubtracted.mask)
+                else:
+                    data_background = sep.Background(data_bgsubtracted)
+
                 data_background.subfrom(data_bgsubtracted)
                 steps.append('background')
 

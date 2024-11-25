@@ -236,6 +236,9 @@ CAMERA_CONFIG_SCHEMA = {
         'overscan_region_card': {
             'type': 'string'
         },
+        'window_region_card': {
+            'type': 'string'
+        },
         'coadditions_card': {
             'type': 'string'
         },
@@ -274,10 +277,7 @@ CAMERA_CONFIG_SCHEMA = {
             'type': 'integer',
             'minimum': 1
         },
-        'master_bias_path': {
-            'type': 'string'
-        },
-        'master_dark_path': {
+        'calibrations_path': {
             'type': 'string'
         },
         'wcs': {
