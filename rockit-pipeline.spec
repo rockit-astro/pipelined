@@ -46,12 +46,6 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/warwick.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/warwick.args %{buildroot}%{_sysconfdir}/pipelined
 
-%{__install} %{_sourcedir}/config/ngts_m06.json %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/ngts_m06.args %{buildroot}%{_sysconfdir}/pipelined
-
-%{__install} %{_sourcedir}/config/h400.json %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/h400.args %{buildroot}%{_sysconfdir}/pipelined
-
 %{__install} %{_sourcedir}/config/portable.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/portable.args %{buildroot}%{_sysconfdir}/pipelined
 
@@ -141,26 +135,6 @@ Group:   Unspecified
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/warwick.json
 %{_sysconfdir}/pipelined/warwick.args
-
-%package data-ngts-m06
-Summary: Data pipeline configuration for NGTS M06.
-Group:   Unspecified
-%description data-ngts-m06
-
-%files data-ngts-m06
-%defattr(0644,root,root,-)
-%{_sysconfdir}/pipelined/ngts_m06.json
-%{_sysconfdir}/pipelined/ngts_m06.args
-
-%package data-h400
-Summary: Data pipeline configuration for H400 test telescope.
-Group:   Unspecified
-%description data-h400
-
-%files data-h400
-%defattr(0644,root,root,-)
-%{_sysconfdir}/pipelined/h400.json
-%{_sysconfdir}/pipelined/h400.args
 
 %package data-portable
 Summary: Data pipeline configuration for the portable telescope.
