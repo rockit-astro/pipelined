@@ -22,13 +22,14 @@
 
 import glob
 import os
+from pathlib import Path
 import random
 import re
 import sys
 import time
 import traceback
 import Pyro4
-from astropy.samp import SAMPIntegratedClient
+from astropy.samp import SAMPIntegratedClient, lockfile_helpers
 from rockit.common import print
 from rockit.pipeline import CommandStatus, Config
 
@@ -275,7 +276,6 @@ def register_preview(config, args):
 
     # Generate a random name to avoid collisions
     ds9_instances = get_ds9_instances()
-    client_index = 0
     while True:
         client_index = random.randint(0, 999999)
         name = f'preview-{camera_id}-{client_index:06d}'
@@ -317,11 +317,12 @@ def register_preview(config, args):
         client.disconnect()
 
     with config.daemon.connect() as pipeline:
+        _, registration = lockfile_helpers.check_running_hub(os.path.join(Path.home(), ".samp"))
+        registration['rockit.client'] = ds9
+
         # Note: If the server is running on a different machine scp/ssh will be used to update the preview
         # This requires that key-based ssh has been configured from the server machine to this client machine.
-        # HACK: Maintain compatibility with xpa ports by passing the random integer in the window title
-        # instead of the SAMP client name
-        return pipeline.register_preview(camera_id, client_index)
+        return pipeline.register_preview(camera_id, registration)
 
 
 def display_preview(config, args):
@@ -329,18 +330,21 @@ def display_preview(config, args):
 
     from astropy.io import fits
     try:
-        header = fits.getheader(args[1])
+        samp_url, samp_secret, samp_client, path = args
+        header = fits.getheader(path)
         camera_config = config.cameras[header['CAMID']]
 
         client = SAMPIntegratedClient()
         try:
-            ds9 = get_ds9_instances()[f'preview-{header["CAMID"]}-{int(args[0]):06d}']
-            client.connect()
+            client.connect(hub_params={
+                'samp.hub.xmlrpc.url': samp_url,
+                'samp.secret': samp_secret
+            })
 
-            result = client.ecall_and_wait(ds9, "ds9.get", "1", cmd="width")
+            result = client.ecall_and_wait(samp_client, "ds9.get", "1", cmd="width")
             width = int(result.get('samp.result', {}).get('value', camera_config['preview_ds9_width']))
 
-            result = client.ecall_and_wait(ds9,  "ds9.get", "1", cmd="height")
+            result = client.ecall_and_wait(samp_client,  "ds9.get", "1", cmd="height")
             height = int(result.get('samp.result', {}).get('value', camera_config['preview_ds9_height']))
             half_margin = 10
 
@@ -403,15 +407,15 @@ def display_preview(config, args):
                         if median is not None:
                             regions.append(f'text {x:.6f} {y:.6f} "{median:.2f}" # color = green')
 
-            client.enotify(ds9, 'ds9.set', cmd=f'file "{args[1]}"')
-            client.enotify(ds9, 'ds9.set', cmd=f'illustrate delete all')
+            client.enotify(samp_client, 'ds9.set', cmd=f'file "{path}"')
+            client.enotify(samp_client, 'ds9.set', cmd='illustrate delete all')
             for illustration in ilustrations:
                 command = illustration.replace('"', '\\\"')
-                client.enotify(ds9, 'ds9.set', cmd=f'illustrate command "{command}"')
+                client.enotify(samp_client, 'ds9.set', cmd=f'illustrate command "{command}"')
 
             for region in regions:
                 command = region.replace('"', '\\\"')
-                client.enotify(ds9, 'ds9.set', cmd=f'region command "{command}"')
+                client.enotify(samp_client, 'ds9.set', cmd=f'region command "{command}"')
 
         finally:
             client.disconnect()

@@ -597,8 +597,7 @@ def notify_guide_profiles(header, data, log_name, ops_daemon):
         return None
 
 
-def process_previews(preview_queue, ssh_root_path, preview_client_config, preview_client_indexes, preview_ds9_ports,
-                     preview_lock):
+def process_previews(preview_queue, ssh_root_path, preview_registrations, preview_lock):
     """A thread running in each processing process that allows ds9 preview updates
        to run concurrently with the main processing work.
      """
@@ -609,12 +608,8 @@ def process_previews(preview_queue, ssh_root_path, preview_client_config, previe
         data_bytes = io.BytesIO()
 
         with preview_lock:
-            for i, port in enumerate(preview_ds9_ports):
-                if port == 0:
-                    continue
-
+            for r in preview_registrations:
                 try:
-                    config = preview_client_config[preview_client_indexes[i]]
                     if data is not None:
                         hdu = fits.PrimaryHDU(data, header=header)
                         move_bscale_bzero(hdu.header)
@@ -622,29 +617,26 @@ def process_previews(preview_queue, ssh_root_path, preview_client_config, previe
 
                     with SSHClient() as ssh:
                         ssh.load_system_host_keys(os.path.join(ssh_root_path, 'known_hosts'))
-                        with open(os.path.join(ssh_root_path, config['key']), encoding='utf-8') as keyfile:
+                        with open(os.path.join(ssh_root_path, r['rockit.key']), encoding='utf-8') as keyfile:
                             key = RSAKey.from_private_key(keyfile)
 
-                        remote_path = f'{config["remote_path"]}/preview-{port}'
-                        ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
+                        ssh.connect(r['rockit.remote_ip'], username=r['rockit.remote_user'], pkey=key)
                         with SCPClient(ssh.get_transport()) as scp:
                             data_bytes.seek(0)
-                            scp.putfo(data_bytes, remote_path=remote_path)
+                            scp.putfo(data_bytes, remote_path=r['rockit.remote_path'])
 
-                        _, stdout, _ = ssh.exec_command(f'{config["remote_command"]} {port} "{remote_path}"')
+                        _, stdout, _ = ssh.exec_command(f'{r["rockit.remote_command"]} "{r["samp.hub.xmlrpc.url"]}" "{r["samp.secret"]}" "{r["rockit.client"]}" "{r["rockit.remote_path"]}"')
                         ret = stdout.channel.recv_exit_status()
-                        ssh.exec_command(f'rm "{remote_path}"')
+                        ssh.exec_command(f'rm "{r["rockit.remote_path"]}"')
                         if ret != 0:
                             raise Exception(f'display command returned code {ret}')
 
                 except Exception as e:
-                    preview_ds9_ports[i] = 0
-                    preview_client_indexes[i] = len(preview_client_config)
-                    print(f'unregistering preview {port}: {e}', flush=True)
-
+                    preview_registrations.remove(r)
+                    print(f'unregistering preview {r["rockit.remote_user"]}@{r["rockit.remote_ip"]}:{r["rockit.remote_path"]}: {e}', flush=True)
 
 def process_frames(processing_queue, camera_config,
-                   preview_timestamp, preview_client_config, preview_client_indexes, preview_ds9_ports, preview_lock,
+                   preview_timestamp, preview_registrations, preview_lock,
                    guide_timestamp, guide_min_interval,
                    dashboard_timestamp, log_name,
                    environment_cards, environment_daemon_name, environment_query_timeout,
@@ -665,8 +657,7 @@ def process_frames(processing_queue, camera_config,
     # Update previews on a separate thread to avoid blocking
     preview_queue = queue.Queue()
     threading.Thread(target=process_previews, daemon=True,
-                     args=(preview_queue, camera_config['ssh_root_path'], preview_client_config,
-                           preview_client_indexes, preview_ds9_ports, preview_lock)
+                     args=(preview_queue, camera_config['ssh_root_path'], preview_registrations, preview_lock)
                      ).start()
 
     # Apply corrections if required
@@ -732,7 +723,7 @@ def process_frames(processing_queue, camera_config,
                         guide_profiles_stale = True
 
             preview_stale = False
-            if any(preview_ds9_ports):
+            if len(preview_registrations):
                 with preview_timestamp.get_lock():
                     next_preview_time = Time(preview_timestamp.value.decode('ascii')) + \
                         camera_config['preview_min_interval'] * u.s
@@ -956,17 +947,15 @@ class PipelineWorkerDaemon:
         self._guide_timestamp = multiprocessing.Array('c', start_timestamp)
         self._dashboard_timestamp = multiprocessing.Array('c', start_timestamp)
 
-        # Use 0 to indicate an unregistered preview slot
-        self._preview_ds9_ports = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
-        self._preview_client_indexes = multiprocessing.Array('I', [0] * self._camera_config['preview_max_instances'])
+        self._preview_config = {getattr(IP, c['remote_machine']): c for c in config.preview_client_config}
+        self._preview_registrations = multiprocessing.Manager().list()
         self._preview_registration_lock = threading.Lock()
         self._preview_lock = multiprocessing.Lock()
-        self._preview_client_ips = [getattr(IP, client['remote_machine']) for client in config.preview_client_config]
 
         for _ in range(self._camera_config['worker_processes']):
             multiprocessing.Process(target=process_frames, daemon=True, args=(
                 self._processing_queue, self._camera_config, self._preview_timestamp,
-                config.preview_client_config, self._preview_client_indexes, self._preview_ds9_ports, self._preview_lock,
+                self._preview_registrations, self._preview_lock,
                 self._guide_timestamp, config.guiding_min_interval,
                 self._dashboard_timestamp, config.log_name,
                 config.environment_cards, config.environment_daemon_name, config.environment_query_timeout,
@@ -1009,42 +998,41 @@ class PipelineWorkerDaemon:
         self._processing_queue.put(info)
 
     @Pyro4.expose
-    def register_preview(self, host, ds9_port):
+    def register_preview(self, host, registration):
         """Register a ds9 window for previews"""
         if not pyro_client_matches([self._config.daemon.host]):
             return CommandStatus.InvalidControlIP
 
-        try:
-            client_index = self._preview_client_ips.index(host)
-        except ValueError:
+        preview_config = self._preview_config.get(host, None)
+        if preview_config is None:
             return CommandStatus.InvalidControlIP
 
         with self._preview_registration_lock:
-            total = len(self._preview_ds9_ports)
-            for i in range(total + 1):
-                if i == total:
-                    return CommandStatus.TooManyPreviews
+            if len(self._preview_registrations) >= self._camera_config['preview_max_instances']:
+                return CommandStatus.TooManyPreviews
 
-                if self._preview_ds9_ports[i] == 0:
-                    break
+            try:
+                # Check whether we are able to connect back to the client, otherwise fail early
+                # This requires that key-based ssh access has been configured from the server to the calling client!
+                with SSHClient() as ssh:
+                    ssh.load_system_host_keys(os.path.join(self._camera_config['ssh_root_path'], 'known_hosts'))
+                    key_path = os.path.join(self._camera_config['ssh_root_path'], preview_config['key'])
+                    with open(key_path, encoding='utf-8') as keyfile:
+                        key = RSAKey.from_private_key(keyfile)
 
-            if host != self._camera_daemon.host:
-                try:
-                    # Check whether we are able to connect back to the client, otherwise fail early
-                    # This requires that key-based ssh access has been configured from the server to the calling client!
-                    with SSHClient() as ssh:
-                        config = self._config.preview_client_config[client_index]
-                        ssh.load_system_host_keys(os.path.join(self._camera_config['ssh_root_path'], 'known_hosts'))
-                        key_path = os.path.join(self._camera_config['ssh_root_path'], config['key'])
-                        with open(key_path, encoding='utf-8') as keyfile:
-                            key = RSAKey.from_private_key(keyfile)
+                    remote_ip = getattr(IP, preview_config['remote_machine'])
+                    ssh.connect(remote_ip, username=preview_config['remote_user'], pkey=key)
 
-                        ssh.connect(getattr(IP, config['remote_machine']), username=config['remote_user'], pkey=key)
-                except Exception:
-                    return CommandStatus.SSHConnectionFailed
+                    registration['rockit.key'] = preview_config['key']
+                    registration['rockit.remote_ip'] = remote_ip
+                    registration['rockit.remote_user'] = preview_config['remote_user']
+                    registration['rockit.remote_command'] = preview_config['remote_command']
+                    registration['rockit.remote_path'] = os.path.join(preview_config["remote_path"],
+                                                                      f'preview-{registration["rockit.client"]}.fits')
+            except Exception:
+                return CommandStatus.SSHConnectionFailed
 
-            self._preview_client_indexes[i] = client_index
-            self._preview_ds9_ports[i] = ds9_port
+            self._preview_registrations.append(registration)
         return CommandStatus.Succeeded
 
 
