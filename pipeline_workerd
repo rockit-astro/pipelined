@@ -625,7 +625,7 @@ def process_previews(preview_queue, ssh_root_path, preview_registrations, previe
                             data_bytes.seek(0)
                             scp.putfo(data_bytes, remote_path=r['rockit.remote_path'])
 
-                        _, stdout, _ = ssh.exec_command(f'{r["rockit.remote_command"]} "{r["samp.hub.xmlrpc.url"]}" "{r["samp.secret"]}" "{r["rockit.client"]}" "{r["rockit.remote_path"]}"')
+                        _, stdout, _ = ssh.exec_command(f'{r["rockit.remote_command"]} "{r["samp.hub.xmlrpc.url"]}" "{r["samp.secret"]}" "{r["rockit.client"]}" "{r["rockit.remote_path"]}" "{r["rockit.window_scale"]}"')
                         ret = stdout.channel.recv_exit_status()
                         ssh.exec_command(f'rm "{r["rockit.remote_path"]}"')
                         if ret != 0:

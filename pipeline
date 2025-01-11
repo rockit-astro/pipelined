@@ -25,6 +25,7 @@ import os
 from pathlib import Path
 import random
 import re
+import subprocess
 import sys
 import time
 import traceback
@@ -274,6 +275,17 @@ def register_preview(config, args):
 
         camera_id = cameras[args[0]]
 
+    # Increase display size on HiDPI displays
+    window_scale = 1.0
+    try:
+        output = subprocess.check_output(['/usr/bin/xrdb', '-query']).decode('ascii').split('\n')
+        for line in output:
+            if line.startswith('Xft.dpi'):
+                window_scale = float(line[8:]) / 96
+    except Exception:
+        traceback.print_exc(file=sys.stdout)
+        pass
+
     # Generate a random name to avoid collisions
     ds9_instances = get_ds9_instances()
     while True:
@@ -306,9 +318,9 @@ def register_preview(config, args):
         client.enotify(ds9, 'ds9.set', cmd='view layout vertical')
         client.enotify(ds9, 'ds9.set', cmd='scale mode zscale')
         client.enotify(ds9, 'ds9.set', cmd='background black')
-        client.enotify(ds9, 'ds9.set', cmd=f'width {config.cameras[camera_id]["preview_ds9_width"]}')
-        client.enotify(ds9, 'ds9.set', cmd=f'height {config.cameras[camera_id]["preview_ds9_height"]}')
-        client.enotify(ds9, 'ds9.set', cmd=f'zoom {config.cameras[camera_id]["preview_ds9_zoom"]}')
+        client.enotify(ds9, 'ds9.set', cmd=f'width {int(window_scale * config.cameras[camera_id]["preview_ds9_width"])}')
+        client.enotify(ds9, 'ds9.set', cmd=f'height {int(window_scale * config.cameras[camera_id]["preview_ds9_height"])}')
+        client.enotify(ds9, 'ds9.set', cmd=f'zoom {window_scale * config.cameras[camera_id]["preview_ds9_zoom"]}')
     except Exception:
         traceback.print_exc(file=sys.stdout)
         print('error: failed to open DS9 preview window')
@@ -319,6 +331,7 @@ def register_preview(config, args):
     with config.daemon.connect() as pipeline:
         _, registration = lockfile_helpers.check_running_hub(os.path.join(Path.home(), ".samp"))
         registration['rockit.client'] = ds9
+        registration['rockit.window_scale'] = window_scale
 
         # Note: If the server is running on a different machine scp/ssh will be used to update the preview
         # This requires that key-based ssh has been configured from the server machine to this client machine.
@@ -330,7 +343,8 @@ def display_preview(config, args):
 
     from astropy.io import fits
     try:
-        samp_url, samp_secret, samp_client, path = args
+        samp_url, samp_secret, samp_client, path, window_scale = args
+        window_scale = float(window_scale)
         header = fits.getheader(path)
         camera_config = config.cameras[header['CAMID']]
 
@@ -346,7 +360,7 @@ def display_preview(config, args):
 
             result = client.ecall_and_wait(samp_client,  "ds9.get", "1", cmd="height")
             height = int(result.get('samp.result', {}).get('value', camera_config['preview_ds9_height']))
-            half_margin = 10
+            half_margin = window_scale * 10
 
             def text_label(pos, text):
                 if pos[1] == 'l':
