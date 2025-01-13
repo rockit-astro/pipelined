@@ -799,10 +799,12 @@ def process_frames(processing_queue, camera_config,
 
                 if isinstance(data_bgsubtracted, np.ma.MaskedArray):
                     data_background = sep.Background(data_bgsubtracted.data, mask=data_bgsubtracted.mask)
+                    data_background.subfrom(data_bgsubtracted.data)
+
                 else:
                     data_background = sep.Background(data_bgsubtracted)
+                    data_background.subfrom(data_bgsubtracted)
 
-                data_background.subfrom(data_bgsubtracted)
                 steps.append('background')
 
             guide_cards = None
