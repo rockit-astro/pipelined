@@ -46,6 +46,10 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/warwick.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/warwick.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/pdt.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/pdt_cam1.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/pdt_cam2.args %{buildroot}%{_sysconfdir}/pipelined
+
 %{__install} %{_sourcedir}/config/portable.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/portable.args %{buildroot}%{_sysconfdir}/pipelined
 
@@ -135,6 +139,19 @@ Group:   Unspecified
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/warwick.json
 %{_sysconfdir}/pipelined/warwick.args
+
+%package data-pdt
+Summary: Data pipeline configuration for the PDT.
+Group:   Unspecified
+%description data-pdt
+
+%files data-pdt
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/pdt.json
+%{_sysconfdir}/pipelined/pdt_cam1.args
+%{_sysconfdir}/pipelined/pdt_cam2.args
+
+%changelog
 
 %package data-portable
 Summary: Data pipeline configuration for the portable telescope.
