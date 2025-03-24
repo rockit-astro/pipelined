@@ -1,0 +1,116 @@
+{
+  "daemon": "pdt_pipeline",
+  "log_name": "pipelined@pdt",
+  "control_machines": ["LocalHost"],
+  "notify_frame_machines": ["LocalHost"],
+  "telescope_query_timeout": 1,
+  "ops_daemon": "pdt_operations",
+  "guiding_min_interval": 5,
+  "preview_clients": [
+    {
+        "remote_machine": "LocalHost",
+        "remote_user": "ops",
+        "remote_path": "/tmp/",
+        "remote_command": "/usr/bin/pipeline display",
+        "key": "id_rsa"
+    }
+  ],
+  "cameras": {
+    "CAM1": {
+      "worker_daemon": "pdt_pipeline_cam1",
+      "worker_processes": 4,
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
+      "ssh_root_path": "/home/ops/.ssh",
+      "output_filename_add_camera_id": true,
+      "output_filename_add_filter": false,
+      "binning_card": "CAM-BIN",
+      "image_region_card": "IMAG-RGN",
+      "overscan_region_card": "BIAS-RGN",
+      "window_region_card": "CAM-WIND",
+      "platescale": 2,
+      "object_minpix": 16,
+      "preview_min_interval": 5,
+      "preview_max_instances": 5,
+      "preview_ds9_width": 680,
+      "preview_ds9_height": 480,
+      "preview_ds9_zoom": 0.125,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4,
+      "wcs": {
+        "scale_low": 1.8,
+        "scale_high": 2.2,
+        "timeout": 4.0
+      }
+    },
+    "CAM2": {
+      "worker_daemon": "pdt_pipeline_cam2",
+      "worker_processes": 4,
+      "input_data_path": "/data/incoming",
+      "output_data_path": "/data",
+      "ssh_root_path": "/home/ops/.ssh",
+      "output_filename_add_camera_id": true,
+      "output_filename_add_filter": false,
+      "binning_card": "CAM-BIN",
+      "image_region_card": "IMAG-RGN",
+      "overscan_region_card": "BIAS-RGN",
+      "window_region_card": "CAM-WIND",
+      "platescale": 2,
+      "object_minpix": 16,
+      "preview_min_interval": 5,
+      "preview_max_instances": 5,
+      "preview_ds9_width": 680,
+      "preview_ds9_height": 480,
+      "preview_ds9_zoom": 0.125,
+      "preview_display_camera_id": true,
+      "preview_display_filter": false,
+      "hfd_grid_tiles_x": 5,
+      "hfd_grid_tiles_y": 4,
+      "wcs": {
+        "scale_low": 1.8,
+        "scale_high": 2.2,
+        "timeout": 4.0
+      }
+    }
+  },
+  "telescope_cards": [
+    {
+      "key": "TELFOC",
+      "comment": "[mm] nominal telescope focus",
+      "camera": "CAM1",
+      "type": "float2dp",
+      "daemon": "pdt_focuser",
+      "method": "report_status",
+      "parameter": ["channels", "cam1", "pos"]
+    },
+    {
+      "key": "TUBETEMP",
+      "comment": "[deg c] telescope tube temperature",
+      "camera": "CAM1",
+      "type": "float1dp",
+      "daemon": "pdt_focuser",
+      "method": "report_status",
+      "parameter": ["temperature", "cam1"]
+    },
+    {
+      "key": "TELFOC",
+      "comment": "[mm] nominal telescope focus",
+      "camera": "CAM2",
+      "type": "float2dp",
+      "daemon": "pdt_focuser",
+      "method": "report_status",
+      "parameter": ["channels", "cam2", "pos"]
+    },
+    {
+      "key": "TUBETEMP",
+      "comment": "[deg c] telescope tube temperature",
+      "camera": "CAM2",
+      "type": "float1dp",
+      "daemon": "pdt_focuser",
+      "method": "report_status",
+      "parameter": ["temperature", "cam2"]
+    }
+  ]
+}
