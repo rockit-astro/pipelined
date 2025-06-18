@@ -1,6 +1,6 @@
 Name:      rockit-pipeline
 Version:   %{_version}
-Release:   1
+Release:   1%{dist}
 Summary:   Data pipeline
 Url:       https://github.com/rockit-astro/pipelined
 License:   GPL-3.0
