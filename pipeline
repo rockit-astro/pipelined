@@ -278,12 +278,12 @@ def register_preview(config, args):
     # Increase display size on HiDPI displays
     window_scale = 1.0
     try:
-        output = subprocess.check_output(['/usr/bin/xrdb', '-query']).decode('ascii').split('\n')
-        for line in output:
-            if line.startswith('Xft.dpi'):
-                window_scale = float(line[8:]) / 96
+        import gi
+        gi.require_version('Gtk', '3.0')
+        from gi.repository import Gtk
+        window_scale = Gtk.Window().get_screen().get_display().get_monitor(0).get_scale_factor()
     except Exception:
-        traceback.print_exc(file=sys.stdout)
+        print('warning: unable to determine window scale, assuming 1.0')
         pass
 
     # Generate a random name to avoid collisions
