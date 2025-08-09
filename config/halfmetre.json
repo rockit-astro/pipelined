@@ -241,11 +241,11 @@
     },
     {
       "key": "TELFOC",
-      "comment": "[steps] nominal telescope focus",
-      "type": "int",
+      "comment": "[mm] nominal telescope focus",
+      "type": "float3dp",
       "daemon": "halfmetre_focuser",
       "method": "report_status",
-      "parameter": "current_steps_1"
+      "parameter": ["channels", "1", "pos"]
     },
     {
       "key": "PRITEMP",
