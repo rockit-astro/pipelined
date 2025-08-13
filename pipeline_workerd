@@ -28,7 +28,6 @@
 import argparse
 import array
 import base64
-import datetime
 import io
 import json
 import multiprocessing
@@ -688,7 +687,7 @@ def process_frames(processing_queue, camera_config,
         loadpath = os.path.join(camera_config['input_data_path'], info['filename'])
 
         try:
-            start = datetime.datetime.utcnow()
+            start = Time.now()
 
             # We only update the header, not the data.
             # Reduce the overheads from astropy fits by reading what we need at the start,
@@ -822,7 +821,7 @@ def process_frames(processing_queue, camera_config,
 
             output_filename = None
             if info['output_archive']:
-                date = datetime.datetime.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
+                date = Time.strptime(header['DATE-OBS'], '%Y-%m-%dT%H:%M:%S.%f')
                 output_filename = info['output_prefix'] + '-'
 
                 if camera_config['output_filename_add_camera_id']:
@@ -886,7 +885,7 @@ def process_frames(processing_queue, camera_config,
                 log.info(log_name, 'Saved frame ' + output_filename)
                 sys.stdout.flush()
 
-            process_time = round((datetime.datetime.utcnow() - start).total_seconds(), 1)
+            process_time = round((Time.now() - start).to_value(u.s), 1)
             print(f'processed {loadpath} in {process_time}s ({", ".join(steps)})', flush=True)
 
             if preview_stale:
