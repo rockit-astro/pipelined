@@ -830,7 +830,7 @@ def process_frames(processing_queue, camera_config,
                 if camera_config['output_filename_add_filter']:
                     output_filename += header.get('FILTER', 'UNKNOWN') + '-'
 
-                output_filename += date.strftime('%Y%m%d%H%M%S%f')[:-3] + '.fits'
+                output_filename += date.strftime('%Y%m%d%H%M%S%f.fits')
 
             add_pipeline_header(header, info, output_filename)
 
