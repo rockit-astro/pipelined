@@ -78,14 +78,11 @@ def get_ds9_instances():
     try:
         local_client.connect()
         client_name_map = {}
-        extract_name = re.compile(r'.*XPA_NAME:\t(.*) XPA_METHOD:.*')
         for client_id in local_client.get_subscribed_clients('ds9.get'):
             try:
-                # DS9 8.5 doesn't seem to offer a proper way to query the window name directly
-                result = local_client.ecall_and_wait(client_id, 'ds9.get', "1", cmd="xpa info")
-                if result['samp.status'] == 'samp.ok':
-                    m = extract_name.match(result['samp.result']['value'])
-                    client_name_map[m.group(1)] = client_id
+                # Requires DS9 8.6 or newer!
+                name = local_client.get_metadata(client_id)['samp.name']
+                client_name_map[name] = client_id
             except Exception:
                 pass
         return client_name_map

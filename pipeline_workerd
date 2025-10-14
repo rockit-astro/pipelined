@@ -259,8 +259,7 @@ def add_operations_header(header, cards):
 
 
 def add_wcs_header(header, objects, binning, add_rotation, wcs_config):
-    """Solves frame WCS and adds the appropriate header keys to the frame.
-       Returns a list of xpa messages that can be given to update_previews"""
+    """Solves frame WCS and adds the appropriate header keys to the frame."""
 
     width = header['NAXIS1']
     height = header['NAXIS2']
