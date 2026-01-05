@@ -568,13 +568,14 @@ def update_dashboard(header, data, ssh_root_path, config, process_steps, process
 
 
 def notify_opsd(header, ops_daemon, log_name):
-    try:
-        with ops_daemon.connect() as ops:
-            return ops.notify_processed_frame(header_to_dict(header))
+        for retry in range(1, 4):
+            try:
+                with ops_daemon.connect() as ops:
+                    return ops.notify_processed_frame(header_to_dict(header))
 
-    except Exception as e:
-        log.error(log_name, f'Failed to notify operations daemon of completed frame ({e})')
-        sys.stdout.flush()
+            except Exception as e:
+                log.error(log_name, f'Failed to notify operations daemon of completed frame (retry {retry}; {e})')
+                sys.stdout.flush()
         return None
 
 
