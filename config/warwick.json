@@ -80,6 +80,20 @@
       "type": "float1dp"
     },
     {
+      "key": "DOMETEMP",
+      "comment": "[deg c] temperature inside dome",
+      "sensor": "internal",
+      "parameter": "temperature",
+      "type": "float1dp"
+    },
+    {
+      "key": "DOMEHUMD",
+      "comment": "[%] humidity inside dome",
+      "sensor": "internal",
+      "parameter": "relative_humidity",
+      "type": "float1dp"
+    },
+    {
       "key": "PRESSURE",
       "comment": "[hPa] air pressure",
       "sensor": "vaisala",
