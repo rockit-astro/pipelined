@@ -30,6 +30,14 @@ from rockit.common.helpers import pyro_client_matches
 from rockit.pipeline import CommandStatus, Config
 
 
+def resolve_default_subdirectory(name):
+    if name != 'default':
+        return name
+
+    # Default to a night directory in the base data dir
+    return (Time.now() - 12 * u.hour).strftime('%Y%m%d')
+
+
 class PipelineDaemon:
     """Master daemon for data pipeline"""
     def __init__(self, config):
@@ -57,30 +65,6 @@ class PipelineDaemon:
         for camera_id in config.cameras:
             self._output_save_to_disk[camera_id] = False
             self._worker_daemons[camera_id] = getattr(daemons, config.cameras[camera_id]['worker_daemon'])
-
-    def __set_output_subdirectory(self, name):
-        """Attempts to set the output data subdirectory inside the config.data_root_path
-           If path is 'default' a YYYYMMDD night directory will be created, otherwise
-           the given directory name will be created and/or checked to ensure it is writable.
-           Returns a CommandStatus indicating the result
-        """
-        if name == 'default':
-            # Default to a night directory in the base data dir
-            # Directory will be created if required
-            night = Time.now() - 12 * u.hour
-            name = night.strftime('%Y%m%d')
-
-        self._output_subdirectory = name
-
-        for camera_id in self._config.cameras:
-            try:
-                with self._worker_daemons[camera_id].connect() as worker:
-                    status = worker.create_output_subdirectory(name)
-                    if status != CommandStatus.Succeeded:
-                        return status
-            except Exception:
-                print('Failed to notify ' + camera_id + ' worker with output directory')
-        return CommandStatus.Succeeded
 
     @Pyro4.expose
     def notify_frame(self, camera_id, filename):
@@ -122,9 +106,7 @@ class PipelineDaemon:
             if not success:
                 return CommandStatus.Blocked
 
-            directory_status = self.__set_output_subdirectory(name)
-            if directory_status != CommandStatus.Succeeded:
-                return directory_status
+            self._output_subdirectory = resolve_default_subdirectory(name)
 
             log.info(self._config.log_name, 'Frame archive subdirectory set to ' + str(name))
             return CommandStatus.Succeeded
@@ -156,6 +138,18 @@ class PipelineDaemon:
 
             if camera_id not in self._config.cameras:
                 return CommandStatus.UnknownCameraID
+
+            if enabled:
+                status = CommandStatus.Succeeded
+                try:
+                    with self._worker_daemons[camera_id].connect() as worker:
+                        status = worker.create_output_subdirectory(self._output_subdirectory)
+                except Exception:
+                    status = CommandStatus.Failed
+                    log.error(self._config.log_name, 'Failed to enable frame archiving for camera ' + camera_id)
+
+                if status != CommandStatus.Succeeded:
+                    return status
 
             self._output_save_to_disk[camera_id] = enabled
             if len(self._config.cameras) == 1:
@@ -311,12 +305,10 @@ class PipelineDaemon:
             if not success:
                 return CommandStatus.Blocked
 
-            directory_status = self.__set_output_subdirectory(params.get('subdirectory', 'default'))
-            if directory_status != CommandStatus.Succeeded:
-                return directory_status
+            self._output_subdirectory = resolve_default_subdirectory(params.get('subdirectory', 'default'))
 
             if not quiet:
-                log.info(self._config.log_name, 'Frame archive subdirectory set to ' + str(self._output_subdirectory))
+                log.info(self._config.log_name, 'Frame archive subdirectory set to ' + self._output_subdirectory)
 
             self._output_frame_prefix = params.get('prefix', 'unknown')
             if not quiet:
@@ -331,11 +323,24 @@ class PipelineDaemon:
                 log.info(self._config.log_name, 'Frame object set to ' + self._frame_object)
 
             archive = params.get('archive', [])
+            directory_status = CommandStatus.Succeeded
             for camera_id in self._config.cameras:
+                if camera_id in archive:
+                    status = CommandStatus.Succeeded
+                    try:
+                        with self._worker_daemons[camera_id].connect() as worker:
+                            status = worker.create_output_subdirectory(self._output_subdirectory)
+                    except Exception:
+                        status = CommandStatus.Failed
+                        log.error(self._config.log_name, 'Failed to enable frame archiving for camera ' + camera_id)
+
+                    if status != CommandStatus.Succeeded:
+                        directory_status = status
+
                 self._output_save_to_disk[camera_id] = camera_id in archive
                 if not quiet and camera_id in archive:
                     if len(self._config.cameras) == 1:
-                        log.info(self._config.log_name, f'Frame archiving enabled')
+                        log.info(self._config.log_name, 'Frame archiving enabled')
                     else:
                         log.info(self._config.log_name, f'Frame archiving for {camera_id} enabled')
 
@@ -359,7 +364,7 @@ class PipelineDaemon:
                 log.info(self._config.log_name, 'Guide profiles ' +
                          ('on ' + self._guide_camera_id if self._guide_camera_id else 'disabled'))
 
-            return CommandStatus.Succeeded
+            return directory_status
 
     @Pyro4.expose
     def report_status(self):
@@ -375,7 +380,7 @@ class PipelineDaemon:
             'dashboard_enabled': self._dashboard_enabled,
 
             'archive_enabled': self._output_save_to_disk,
-            'archive_subdirectory': str(self._output_subdirectory),
+            'archive_subdirectory': self._output_subdirectory,
 
             'frame_type': self._frame_type,
             'frame_object': self._frame_object,
