@@ -50,6 +50,9 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/config/pdt_cam1.args %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/pdt_cam2.args %{buildroot}%{_sysconfdir}/pipelined
 
+%{__install} %{_sourcedir}/config/h400.json %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/h400.args %{buildroot}%{_sysconfdir}/pipelined
+
 %{__install} %{_sourcedir}/config/portable.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/portable.args %{buildroot}%{_sysconfdir}/pipelined
 
@@ -151,7 +154,15 @@ Group:   Unspecified
 %{_sysconfdir}/pipelined/pdt_cam1.args
 %{_sysconfdir}/pipelined/pdt_cam2.args
 
-%changelog
+%package data-h400
+Summary: Data pipeline configuration for H400 test telescope.
+Group:   Unspecified
+%description data-h400
+
+%files data-h400
+%defattr(0644,root,root,-)
+%{_sysconfdir}/pipelined/h400.json
+%{_sysconfdir}/pipelined/h400.args
 
 %package data-portable
 Summary: Data pipeline configuration for the portable telescope.
