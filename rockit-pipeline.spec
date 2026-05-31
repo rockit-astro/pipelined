@@ -26,8 +26,7 @@ mkdir -p %{buildroot}%{_udevrulesdir}
 %{__install} %{_sourcedir}/completion/pipeline %{buildroot}/etc/bash_completion.d/pipeline
 
 %{__install} %{_sourcedir}/config/onemetre.json %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/onemetre_blue.args %{buildroot}%{_sysconfdir}/pipelined
-%{__install} %{_sourcedir}/config/onemetre_red.args %{buildroot}%{_sysconfdir}/pipelined
+%{__install} %{_sourcedir}/config/onemetre.args %{buildroot}%{_sysconfdir}/pipelined
 
 %{__install} %{_sourcedir}/config/clasp.json %{buildroot}%{_sysconfdir}/pipelined
 %{__install} %{_sourcedir}/config/clasp_cmos.args %{buildroot}%{_sysconfdir}/pipelined
@@ -115,8 +114,7 @@ Group:   Unspecified
 %files data-onemetre
 %defattr(0644,root,root,-)
 %{_sysconfdir}/pipelined/onemetre.json
-%{_sysconfdir}/pipelined/onemetre_blue.args
-%{_sysconfdir}/pipelined/onemetre_red.args
+%{_sysconfdir}/pipelined/onemetre.args
 
 %package data-sting
 Summary: Data pipeline configuration for the STING telescope.
