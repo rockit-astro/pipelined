@@ -107,9 +107,24 @@ class PipelineDaemon:
                 return CommandStatus.Blocked
 
             self._output_subdirectory = resolve_default_subdirectory(name)
-
             log.info(self._config.log_name, 'Frame archive subdirectory set to ' + str(name))
-            return CommandStatus.Succeeded
+
+            # Create subdirectory immediately if archiving is enabled
+            directory_status = CommandStatus.Succeeded
+            for camera_id in self._config.cameras:
+                if self._output_save_to_disk[camera_id]:
+                    status = CommandStatus.Succeeded
+                    try:
+                        with self._worker_daemons[camera_id].connect() as worker:
+                            status = worker.create_output_subdirectory(self._output_subdirectory)
+                    except Exception:
+                        status = CommandStatus.Failed
+                        log.error(self._config.log_name, 'Failed to enable frame archiving for camera ' + camera_id)
+
+                    if status != CommandStatus.Succeeded:
+                        directory_status = status
+
+            return directory_status
 
     @Pyro4.expose
     def set_output_frame_prefix(self, prefix):
